@@ -1,22 +1,22 @@
 package main
 
 import (
-	"net"
-	"fmt"
-	"strings"
 	"encoding/binary"
+	"fmt"
+	"net"
+	"strings"
 )
 
-type PeerManager struct{
+type PeerManager struct {
 	closeChan      chan Peer
 	connectedPeers map[string]*Peer
 }
 
-func (peerManager PeerManager) IsConnected(IP string) bool{
+func (peerManager PeerManager) IsConnected(IP string) bool {
 	return false
 }
 
-func (peerManager PeerManager) GetAllIPs() []string{
+func (peerManager PeerManager) GetAllIPs() []string {
 	return []string{}
 }
 

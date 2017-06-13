@@ -13,14 +13,14 @@ import (
 //Peer contains the following data associated with a connected peer-
 //Conn - The TCP connection with that peer
 type Peer struct {
-	Conn           *net.TCPConn
-	closeChan      chan Peer
-	connectedAt    uint32
-	connected      bool
-	username       string
-	msgChan        chan []byte
-	stopMsgChan    chan bool
-	sendMutex      sync.Mutex
+	Conn        *net.TCPConn
+	closeChan   chan Peer
+	connectedAt uint32
+	connected   bool
+	username    string
+	msgChan     chan []byte
+	stopMsgChan chan bool
+	sendMutex   sync.Mutex
 }
 
 func (peer *Peer) initPeer() {
@@ -69,7 +69,6 @@ func (peer *Peer) listenForMessages() {
 
 	}
 }
-
 
 //createMsgChan creates a chan into which all the messages sent by a peer will be sent
 func (peer *Peer) createMsgChan() {

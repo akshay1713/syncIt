@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"encoding/binary"
+	"flag"
+	"fmt"
 	"github.com/akshay1713/LANPeerDiscovery"
-	"time"
+	"github.com/akshay1713/goUtils"
 	"io"
 	"strings"
-	"github.com/akshay1713/goUtils"
-	"flag"
+	"time"
 )
 
-func main(){
+func main() {
 	username := getUserName()
 	if username == "" {
 		fmt.Println("Please specify a username using the -u flag")
@@ -27,14 +27,14 @@ func main(){
 	startCli(cliController, folder)
 }
 
-func getUserName() string{
+func getUserName() string {
 	var usernamePtr *string
 	usernamePtr = flag.String("u", "", "Desired username")
 	flag.Parse()
 	return *usernamePtr
 }
 
-func initDiscovery(peerManager PeerManager, username string){
+func initDiscovery(peerManager PeerManager, username string) {
 	candidatePorts := []string{"8011", "8012"}
 	connectionsChan := LANPeerDiscovery.GetConnectionsChan(candidatePorts, peerManager, "syncIt")
 	for connAndType := range connectionsChan {
