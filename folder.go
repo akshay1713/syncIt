@@ -80,14 +80,7 @@ func getGlobalConfig() string {
 }
 
 func (folder FolderManager) sync(folderPath string) {
-	syncFolder := folderPath + "/.syncIt"
-	if _, err := os.Stat(syncFolder); os.IsNotExist(err) {
-		folder.cliController.print("This is an unsynced folder, adding it for syncing")
-		folder.add(folderPath)
-	}
-	//filesInFolder := getFileNamesInFolder(folderPath)
-	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
-	syncData.update(folderPath, syncFolder+"/.syncit.json")
+	syncData := folder.updateExistingFolderConfig(folderPath)
 	changedFiles := syncData.getAllFiles()
 	if len(changedFiles) == 0 {
 		folder.cliController.print("No files changed. Resync not required.")
@@ -99,6 +92,18 @@ func (folder FolderManager) sync(folderPath string) {
 	}
 	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames)
 	folder.peermanager.sendToAllPeers(syncReqMsg)
+}
+
+func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncData {
+	syncFolder := folderPath + "/.syncIt"
+	if _, err := os.Stat(syncFolder); os.IsNotExist(err) {
+		folder.cliController.print("This is an unsynced folder, adding it for syncing")
+		folder.add(folderPath)
+	}
+	//filesInFolder := getFileNamesInFolder(folderPath)
+	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
+	syncData.update(folderPath, syncFolder+"/.syncit.json")
+	return syncData
 }
 
 func (folder FolderManager) getAllUniqueIDs() []string {
@@ -114,15 +119,22 @@ func (folder FolderManager) getAllUniqueIDs() []string {
 	return uniqueIDs
 }
 
-func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID string, fileNames []string) {
+func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID int64, fileNames []string) {
 	folderPath := directory + "/" + folderName
 	err := os.Mkdir(folderPath, 0755)
 	goUtils.HandleErr(err, "While creating peer folder")
 	folder.setupFolderConfig(folderPath)
+	absPath, err := filepath.Abs(folderPath)
+	goUtils.HandleErr(err, "While getting absolute folder path")
+	folder.addToGlobal(absPath, uniqueID)
+	folder.addPeerFiles(folderPath, fileNames)
 }
 
-//func (folder FolderManager) addPeerFile(folderPath string, fileName string, uniqueID int64) error {
-//	_, err := os.Create(folderPath + "/" + fileName)
-//	absFolderPath :- filepath.Abs(filePath)
-//	return err
-//}
+func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) {
+	for i := range fileNames {
+		log.Println("Creating file ", fileNames[i])
+		_, err := os.Create(folderPath + "/" + fileNames[i])
+		goUtils.HandleErr(err, "While creating file")
+	}
+	folder.updateExistingFolderConfig(folderPath)
+}

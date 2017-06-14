@@ -23,7 +23,7 @@ func main() {
 	peerManager := PeerManager{closeChan: closeChan, connectedPeers: connectedPeers}
 	cliController := CLIController{}
 	go initDiscovery(peerManager, username, &cliController)
-	folder := FolderManager{cliController: cliController, peermanager: peerManager}
+	folder := FolderManager{cliController: &cliController, peermanager: peerManager}
 	startCli(cliController, folder)
 }
 

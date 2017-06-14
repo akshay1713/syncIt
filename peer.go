@@ -133,7 +133,7 @@ func (peer Peer) syncReqHandler(syncReqMsg []byte){
 		start += int(name_lengths[i])
 	}
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
-	if goUtils.Pos(uniqueIDs, string(folderID)) > -1 {
+	if goUtils.Pos(uniqueIDs, string(folderID)) == -1 {
 		peer.cliController.lock()
 		peer.cliController.printUnsafe(peer.username + " wants to sync a folder with the following details\n" +
 			"uniqueid - " + string(folderID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
@@ -141,8 +141,11 @@ func (peer Peer) syncReqHandler(syncReqMsg []byte){
 		if userResponse == "y" {
 			directory := peer.cliController.getInputUnsafe("Enter the directory where you want to create this folder")
 			folderName := peer.cliController.getInputUnsafe("Enter the name of the folder you want to create")
+			peer.folderManager.addPeerFolder(directory, folderName, int64(folderID), fileNames)
 		}
 		peer.cliController.unlock()
+	} else {
+		//sync existing folder here
 	}
 }
 
