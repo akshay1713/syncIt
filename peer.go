@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/akshay1713/goUtils"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -21,6 +22,8 @@ type Peer struct {
 	msgChan     chan []byte
 	stopMsgChan chan bool
 	sendMutex   sync.Mutex
+	cliController *CLIController
+	folderManager FolderManager
 }
 
 func (peer *Peer) initPeer() {
@@ -65,6 +68,8 @@ func (peer *Peer) listenForMessages() {
 		switch msgType {
 		case "ping":
 			peer.pingHandler()
+		case "sync_req":
+			peer.syncReqHandler(msg)
 		}
 
 	}
@@ -112,6 +117,33 @@ func (peer Peer) getNextMessage() ([]byte, error) {
 
 func (peer Peer) pingHandler() {
 	//fmt.Println("Ping received")
+}
+
+func (peer Peer) syncReqHandler(syncReqMsg []byte){
+	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
+	folderID := binary.BigEndian.Uint32(syncReqMsg[4:8])
+	start := 8
+	name_lengths := []byte{}
+	for ; start < int(num_files)+8 ; start++ {
+		name_lengths = append(name_lengths, syncReqMsg[start])
+	}
+	fileNames := []string{}
+	for i := range name_lengths {
+		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))
+		start += int(name_lengths[i])
+	}
+	uniqueIDs := peer.folderManager.getAllUniqueIDs()
+	if goUtils.Pos(uniqueIDs, string(folderID)) > -1 {
+		peer.cliController.lock()
+		peer.cliController.printUnsafe(peer.username + " wants to sync a folder with the following details\n" +
+			"uniqueid - " + string(folderID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+		userResponse := peer.cliController.getInputUnsafe("Do you want to accept this folder?[y/n]")
+		if userResponse == "y" {
+			directory := peer.cliController.getInputUnsafe("Enter the directory where you want to create this folder")
+			folderName := peer.cliController.getInputUnsafe("Enter the name of the folder you want to create")
+		}
+		peer.cliController.unlock()
+	}
 }
 
 func (peer Peer) sendPong() {

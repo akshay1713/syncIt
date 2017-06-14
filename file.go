@@ -38,6 +38,10 @@ func (syncData *SyncData) update(folderPath string, configPath string) {
 	syncData.LastSynced = time.Now().UTC().Unix()
 }
 
+func (syncData SyncData) getAllFiles() []File {
+	return syncData.Files
+}
+
 func (syncData SyncData) getChangedFiles(oldSyncData SyncData) []File{
 	//Handle new files added here as well
 	files := syncData.Files

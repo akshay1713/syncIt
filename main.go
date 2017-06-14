@@ -21,8 +21,8 @@ func main() {
 	connectedPeers := make(map[string]*Peer)
 	closeChan := make(chan Peer)
 	peerManager := PeerManager{closeChan: closeChan, connectedPeers: connectedPeers}
-	go initDiscovery(peerManager, username)
 	cliController := CLIController{}
+	go initDiscovery(peerManager, username, &cliController)
 	folder := FolderManager{cliController: cliController, peermanager: peerManager}
 	startCli(cliController, folder)
 }
@@ -34,20 +34,20 @@ func getUserName() string {
 	return *usernamePtr
 }
 
-func initDiscovery(peerManager PeerManager, username string) {
+func initDiscovery(peerManager PeerManager, username string, cliController *CLIController) {
 	candidatePorts := []string{"8011", "8012"}
 	connectionsChan := LANPeerDiscovery.GetConnectionsChan(candidatePorts, peerManager, "syncIt")
 	for connAndType := range connectionsChan {
 		switch connAndType.Type {
 		case "sender":
 			currentTimestamp := uint32(time.Now().UTC().Unix())
-			peerManager.addNewPeer(connAndType.Connection, currentTimestamp, true, username)
+			peerManager.addNewPeer(connAndType.Connection, currentTimestamp, true, username, cliController)
 		case "receiver":
 			recvdTimestampBytes := make([]byte, 4)
 			_, err := io.ReadFull(connAndType.Connection, recvdTimestampBytes)
 			goUtils.HandleErr(err, "While getting timestamp")
 			recvdTimestamp := binary.BigEndian.Uint32(recvdTimestampBytes)
-			peerManager.addNewPeer(connAndType.Connection, recvdTimestamp, false, username)
+			peerManager.addNewPeer(connAndType.Connection, recvdTimestamp, false, username, cliController)
 		case "duplicate_receiver":
 			recvdTimestampBytes := make([]byte, 4)
 			_, err := io.ReadFull(connAndType.Connection, recvdTimestampBytes)

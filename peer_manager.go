@@ -20,7 +20,7 @@ func (peerManager PeerManager) GetAllIPs() []string {
 	return []string{}
 }
 
-func (peerManager PeerManager) addNewPeer(conn *net.TCPConn, currentTimestamp uint32, initiated bool, username string) Peer {
+func (peerManager PeerManager) addNewPeer(conn *net.TCPConn, currentTimestamp uint32, initiated bool, username string, cliController *CLIController) Peer {
 	if initiated {
 		conn.Write([]byte{1})
 		currentTimestampBytes := make([]byte, 4)
@@ -36,7 +36,7 @@ func (peerManager PeerManager) addNewPeer(conn *net.TCPConn, currentTimestamp ui
 	peerUsernameLen := binary.BigEndian.Uint16(peerUsernameLenBytes)
 	peerUsername := make([]byte, peerUsernameLen)
 	conn.Read(peerUsername)
-	newPeer := Peer{Conn: conn, closeChan: peerManager.closeChan, connected: true, username: string(peerUsername)}
+	newPeer := Peer{Conn: conn, closeChan: peerManager.closeChan, connected: true, username: string(peerUsername), cliController: cliController}
 	fmt.Println("Connected to ", string(peerUsername))
 	peerAddress := conn.RemoteAddr().String()
 	peerIP := strings.Split(peerAddress, ":")[0]
@@ -60,4 +60,10 @@ func (peerManager *PeerManager) compareTimestampAndUpdate(conn *net.TCPConn, new
 	peer.Conn = conn
 	peer.connectedAt = newTimestamp
 	go peer.listenForMessages()
+}
+
+func (peerManager PeerManager) sendToAllPeers(msg []byte) {
+	for _, peer := range peerManager.connectedPeers {
+		peer.sendMessage(msg)
+	}
 }

@@ -21,6 +21,7 @@ func (cliController *CLIController) getInput(prompt string) string {
 	return text[0 : len(text)-1]
 }
 
+
 func (cliController *CLIController) print(msg string) {
 	cliController.lock()
 	fmt.Println(msg)
@@ -33,6 +34,17 @@ func (cliController *CLIController) lock() {
 
 func (cliController CLIController) unlock() {
 	cliController.userIO.Unlock()
+}
+
+func (cliController *CLIController) getInputUnsafe(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println(prompt)
+	text, _ := reader.ReadString('\n')
+	return text[0 : len(text)-1]
+}
+
+func (cliController *CLIController) printUnsafe(msg string) {
+	fmt.Println(msg)
 }
 
 func startCli(cliController CLIController, folder FolderManager) {

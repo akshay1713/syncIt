@@ -14,10 +14,10 @@ import (
 
 type FolderManager struct {
 	peermanager   PeerManager
-	cliController CLIController
+	cliController *CLIController
 }
 
-func (folder FolderManager) add(folderPath string) {
+func (folder FolderManager) setupFolderConfig(folderPath string) string {
 	syncFolder := folderPath + "/.syncIt"
 	log.Println("Creating folder ", syncFolder)
 	if _, err := os.Stat(syncFolder); !os.IsNotExist(err) {
@@ -27,18 +27,27 @@ func (folder FolderManager) add(folderPath string) {
 	// path/to/whatever does not exist
 	if err != nil {
 		folder.cliController.print("Error while creating sync config directory " + string(err.Error()))
-		return
+		return ""
 	}
 	configFile := syncFolder + "/.syncit.json"
 	_, err = os.Create(configFile)
 	goUtils.HandleErr(err, "Error while creating config file:")
-	_ = addMultipleFiles(folderPath, configFile)
-	folder.addToGlobal(folderPath)
+	return configFile
 }
 
-func (folder FolderManager) addToGlobal(folderPath string){
+func (folder FolderManager) add(folderPath string) {
+	configFile := folder.setupFolderConfig(folderPath)
+	_ = addMultipleFiles(folderPath, configFile)
+	folder.addNewFolderToGlobal(folderPath)
+}
+
+func (folder FolderManager) addNewFolderToGlobal(folderPath string){
 	uniqueID := time.Now().UTC().Unix()
 	absFolderPath, _ := filepath.Abs(folderPath)
+	folder.addToGlobal(absFolderPath, uniqueID)
+}
+
+func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID int64) {
 	globalConfigFile := getGlobalConfig()
 	configBytes, err := ioutil.ReadFile(globalConfigFile)
 	goUtils.HandleErr(err, "While reading current config file")
@@ -50,7 +59,7 @@ func (folder FolderManager) addToGlobal(folderPath string){
 	ioutil.WriteFile(globalConfigFile, marshalledConfig, 0755)
 }
 
-func getGlobalConfig() string{
+func getGlobalConfig() string {
 	user, _ := user.Current()
 	homeDir := user.HomeDir
 	globalConfigFolder := filepath.Join(homeDir, ".syncit")
@@ -67,6 +76,7 @@ func getGlobalConfig() string{
 		config.Write(emptyConfig)
 		config.Close()
 	}
+	return globalConfigFile
 }
 
 func (folder FolderManager) sync(folderPath string) {
@@ -77,15 +87,42 @@ func (folder FolderManager) sync(folderPath string) {
 	}
 	//filesInFolder := getFileNamesInFolder(folderPath)
 	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
-	oldSyncData := syncData
 	syncData.update(folderPath, syncFolder+"/.syncit.json")
-	changedFiles := syncData.getChangedFiles(oldSyncData)
+	changedFiles := syncData.getAllFiles()
 	if len(changedFiles) == 0 {
 		folder.cliController.print("No files changed. Resync not required.")
 		return
 	}
-	syncReqMessages := [][]byte{}
-	for i:= range changedFiles {
-		syncReqMessages[i] = getSyncReqMsg(syncData.UniqueID, 1, changedFiles[i].Name)
+	fileNames := []string{}
+	for i := range changedFiles {
+		fileNames = append(fileNames, changedFiles[i].Name)
 	}
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames)
+	folder.peermanager.sendToAllPeers(syncReqMsg)
 }
+
+func (folder FolderManager) getAllUniqueIDs() []string {
+	globalConfigFile := getGlobalConfig()
+	configBytes, err := ioutil.ReadFile(globalConfigFile)
+	goUtils.HandleErr(err, "While reading global config file")
+	globalConfigJson := make(map[string]string)
+	json.Unmarshal(configBytes, globalConfigJson)
+	uniqueIDs := []string{}
+	for id, _ := range globalConfigJson {
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	return uniqueIDs
+}
+
+func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID string, fileNames []string) {
+	folderPath := directory + "/" + folderName
+	err := os.Mkdir(folderPath, 0755)
+	goUtils.HandleErr(err, "While creating peer folder")
+	folder.setupFolderConfig(folderPath)
+}
+
+//func (folder FolderManager) addPeerFile(folderPath string, fileName string, uniqueID int64) error {
+//	_, err := os.Create(folderPath + "/" + fileName)
+//	absFolderPath :- filepath.Abs(filePath)
+//	return err
+//}
