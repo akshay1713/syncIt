@@ -30,8 +30,6 @@ func (peer *Peer) initPeer() {
 	peer.createMsgChan()
 	go peer.listenForMessages()
 	peer.setPing()
-	//peer.sendingFiles = []File{}
-	//peer.receivingFiles = []File{}
 }
 
 //sendMessage is the route through which all messages are sent to a peer.

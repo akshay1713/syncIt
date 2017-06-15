@@ -3,22 +3,25 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/abiosoft/ishell"
 	"os"
 	"sync"
+	"strings"
 )
 
 type CLIController struct {
 	userIO sync.Mutex
+	ioWait bool
+	inputChan chan string
 }
 
 func (cliController *CLIController) getInput(prompt string) string {
 	cliController.lock()
-	reader := bufio.NewReader(os.Stdin)
+	cliController.ioWait = true
 	fmt.Println(prompt)
-	text, _ := reader.ReadString('\n')
+	text := <- cliController.inputChan
+	cliController.ioWait = false
 	cliController.unlock()
-	return text[0 : len(text)-1]
+	return text
 }
 
 
@@ -47,25 +50,31 @@ func (cliController *CLIController) printUnsafe(msg string) {
 	fmt.Println(msg)
 }
 
-func startCli(cliController CLIController, folder FolderManager) {
-	shell := ishell.New()
-	shell.Println("Started syncIt")
-	shell.AddCmd(&ishell.Cmd{
-		Name: "add",
-		Help: "Add folder to be synced",
-		Func: func(c *ishell.Context) {
+func (cliController *CLIController) startCli(folder FolderManager){
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		text, _ := reader.ReadString('\n')
+		trimmedText := strings.Trim(text, "\n")
+		if cliController.ioWait {
+			cliController.inputChan <- trimmedText
+			continue
+		}
+		switch  trimmedText{
+		case "add":
+			fmt.Println("Asking for folder path")
 			folderPath := cliController.getInput("Enter the folder path to be added:")
 			folder.add(folderPath)
-		},
-	})
-	shell.AddCmd(&ishell.Cmd{
-		Name: "sync",
-		Help: "Sync a folder added earlier",
-		Func: func(c *ishell.Context) {
+		case "sync":
 			folderPath := cliController.getInput("Enter the folder path to be synced")
 			folder.sync(folderPath)
 			cliController.print("Syncing " + folderPath)
-		},
-	})
-	shell.Start()
+		default:
+			if cliController.ioWait {
+				fmt.Println("Ignoring ", text)
+			} else {
+				fmt.Println("Invalid command ", text)
+			}
+		}
+	}
 }
+

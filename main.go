@@ -21,10 +21,11 @@ func main() {
 	connectedPeers := make(map[string]*Peer)
 	closeChan := make(chan Peer)
 	peerManager := PeerManager{closeChan: closeChan, connectedPeers: connectedPeers}
-	cliController := CLIController{}
+	inputChan := make(chan string)
+	cliController := CLIController{inputChan: inputChan}
 	go initDiscovery(peerManager, username, &cliController)
 	folder := FolderManager{cliController: &cliController, peermanager: peerManager}
-	startCli(cliController, folder)
+	cliController.startCli(folder)
 }
 
 func getUserName() string {
