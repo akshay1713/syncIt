@@ -35,7 +35,7 @@ func (cliController *CLIController) lock() {
 	cliController.userIO.Lock()
 }
 
-func (cliController CLIController) unlock() {
+func (cliController *CLIController) unlock() {
 	cliController.userIO.Unlock()
 }
 
