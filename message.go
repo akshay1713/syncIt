@@ -19,18 +19,17 @@ func getPongMsg() []byte {
 	return pingMsg
 }
 
-func getFileDataMsg(fileData []byte, uniqueID uint32) []byte {
-	fileDataMsg := make([]byte, 5+len(fileData)+32)
-	msgLen := len(fileData) + 32
-	goUtils.GetBytesFromUint32(fileDataMsg[0:4], uint32(msgLen)+1)
-	fileDataMsg[4] = 5
-	goUtils.GetBytesFromUint32(fileDataMsg[5:37], uniqueID)
-	copy(fileDataMsg[37:], fileData)
-	return fileDataMsg
+func getFileReqMsg(uniqueID int64, fileName string) []byte {
+	fileReqMsg := make([]byte, 5 + len(fileName) + 4)
+	msgLen := len(fileName) + 4
+	goUtils.GetBytesFromUint32(fileReqMsg[0:4], uint32(msgLen)+1)
+	fileReqMsg[4] = 3
+	goUtils.GetBytesFromUint32(fileReqMsg[5:9], uint32(uniqueID))
+	copy(fileReqMsg[9:], fileName)
+	return fileReqMsg
 }
 
 func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string) []byte{
-	log.Println("Sending filenames ", fileNames)
 	totalNameLen := 0
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
@@ -52,7 +51,6 @@ func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string) []byte{
 		copy(syncReqMsg[start:start+len(fileNames[i])], fileNames[i])
 		start += len(fileNames[i])
 	}
-	log.Println("Sending message ", syncReqMsg)
 	return syncReqMsg
 }
 
@@ -61,9 +59,7 @@ func getMsgType(msg []byte) string {
 		0: "ping",
 		1: "pong",
 		2: "sync_req",
-		3: "file_info",
-		4: "file_accept",
-		5: "file_data",
+		3: "file_req",
 	}
 	msgType := availableMsgTypes[msg[0]]
 	return msgType

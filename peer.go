@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 	"github.com/akshay1713/goUtils"
+	"log"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -68,6 +69,8 @@ func (peer *Peer) listenForMessages() {
 			peer.pingHandler()
 		case "sync_req":
 			peer.syncReqHandler(msg)
+		case "file_req":
+			peer.fileReqHandler(msg)
 		}
 
 	}
@@ -117,9 +120,15 @@ func (peer Peer) pingHandler() {
 	//fmt.Println("Ping received")
 }
 
+func (peer Peer) fileReqHandler(fileReqMsg []byte){
+	uniqueID := int64(binary.BigEndian.Uint32(fileReqMsg[1:5]))
+	fileName := string(fileReqMsg[5:])
+	log.Println("File req message received for ", uniqueID, fileName)
+}
+
 func (peer Peer) syncReqHandler(syncReqMsg []byte){
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
-	folderID := binary.BigEndian.Uint32(syncReqMsg[4:8])
+	folderID := int64(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
 	name_lengths := []byte{}
 	for ; start < int(num_files)+8 ; start++ {
@@ -138,7 +147,11 @@ func (peer Peer) syncReqHandler(syncReqMsg []byte){
 		if userResponse == "y" {
 			directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
 			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
-			peer.folderManager.addPeerFolder(directory, folderName, int64(folderID), fileNames)
+			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
+			for i := range fileNames {
+				fileReqMsg := getFileReqMsg(folderID, fileNames[i])
+				peer.sendMessage(fileReqMsg)
+			}
 		}
 	} else {
 		//sync existing folder here
