@@ -24,6 +24,14 @@ func (cliController *CLIController) getInput(prompt string) string {
 	return text
 }
 
+func (cliController *CLIController) getCommandInput(prompt string) string {
+	fmt.Println(prompt)
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+	trimmedText := strings.Trim(text, "\n")
+	return trimmedText
+}
+
 
 func (cliController *CLIController) print(msg string) {
 	cliController.lock()
@@ -62,10 +70,10 @@ func (cliController *CLIController) startCli(folder FolderManager){
 		switch  trimmedText{
 		case "add":
 			fmt.Println("Asking for folder path")
-			folderPath := cliController.getInput("Enter the folder path to be added:")
+			folderPath := cliController.getCommandInput("Enter the folder path to be added:")
 			folder.add(folderPath)
 		case "sync":
-			folderPath := cliController.getInput("Enter the folder path to be synced")
+			folderPath := cliController.getCommandInput("Enter the folder path to be synced")
 			folder.sync(folderPath)
 			cliController.print("Syncing " + folderPath)
 		default:
@@ -77,4 +85,3 @@ func (cliController *CLIController) startCli(folder FolderManager){
 		}
 	}
 }
-
