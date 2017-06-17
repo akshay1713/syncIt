@@ -3,28 +3,30 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/akshay1713/goUtils"
 	"io"
+	"log"
 	"net"
 	"strings"
 	"sync"
 	"time"
-	"github.com/akshay1713/goUtils"
-	"log"
 )
 
 //Peer contains the following data associated with a connected peer-
 //Conn - The TCP connection with that peer
 type Peer struct {
-	Conn        *net.TCPConn
-	closeChan   chan Peer
-	connectedAt uint32
-	connected   bool
-	username    string
-	msgChan     chan []byte
-	stopMsgChan chan bool
-	sendMutex   sync.Mutex
-	cliController *CLIController
-	folderManager FolderManager
+	Conn           *net.TCPConn
+	closeChan      chan Peer
+	connectedAt    uint32
+	connected      bool
+	username       string
+	msgChan        chan []byte
+	stopMsgChan    chan bool
+	sendMutex      sync.Mutex
+	cliController  *CLIController
+	folderManager  FolderManager
+	sendingFiles   []TransferFile
+	receivingFiles []TransferFile
 }
 
 func (peer *Peer) initPeer() {
@@ -120,20 +122,26 @@ func (peer Peer) pingHandler() {
 	//fmt.Println("Ping received")
 }
 
-func (peer Peer) fileReqHandler(fileReqMsg []byte){
+func (peer Peer) fileReqHandler(fileReqMsg []byte) {
 	uniqueID := int64(binary.BigEndian.Uint32(fileReqMsg[1:5]))
 	fileName := string(fileReqMsg[5:])
-	log.Println("File req message received for ", uniqueID, fileName)
+	log.Println("SyncFile req message received for ", uniqueID, fileName)
 }
 
-func (peer Peer) syncReqHandler(syncReqMsg []byte){
+func (peer Peer) syncReqHandler(syncReqMsg []byte) {
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
 	folderID := int64(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
 	name_lengths := []byte{}
-	for ; start < int(num_files)+8 ; start++ {
+	for ; start < int(num_files)+8; start++ {
 		name_lengths = append(name_lengths, syncReqMsg[start])
 	}
+	fileSizes := []uint64{}
+	for i := 0; i < int(num_files) ; i++ {
+		fileSizes[i] = binary.BigEndian.Uint64(syncReqMsg[start:start+8])
+		start += 8
+	}
+	log.Println("File sizes are ", fileSizes)
 	fileNames := []string{}
 	for i := range name_lengths {
 		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))

@@ -1,15 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/akshay1713/goUtils"
+	"io/ioutil"
 	"log"
 	"os"
-	"time"
-	"path/filepath"
-	"encoding/json"
-	"io/ioutil"
 	"os/user"
+	"path/filepath"
 	"strconv"
+	"time"
 )
 
 type FolderManager struct {
@@ -41,7 +41,7 @@ func (folder FolderManager) add(folderPath string) {
 	folder.addNewFolderToGlobal(folderPath)
 }
 
-func (folder FolderManager) addNewFolderToGlobal(folderPath string){
+func (folder FolderManager) addNewFolderToGlobal(folderPath string) {
 	uniqueID := time.Now().UTC().Unix()
 	absFolderPath, _ := filepath.Abs(folderPath)
 	folder.addToGlobal(absFolderPath, uniqueID)
@@ -71,8 +71,8 @@ func getGlobalConfig() string {
 	globalConfigFile := globalConfigFolder + "/global.json"
 	if _, err := os.Stat(globalConfigFile); os.IsNotExist(err) {
 		log.Println("Creating config file", globalConfigFile)
-		config,_ := os.Create(globalConfigFile)
-		emptyConfig, _ := json.Marshal(struct {}{})
+		config, _ := os.Create(globalConfigFile)
+		emptyConfig, _ := json.Marshal(struct{}{})
 		config.Write(emptyConfig)
 		config.Close()
 	}
@@ -90,7 +90,11 @@ func (folder FolderManager) sync(folderPath string) {
 	for i := range changedFiles {
 		fileNames = append(fileNames, changedFiles[i].Name)
 	}
-	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames)
+	fileSizes := []uint64{}
+	for i := range changedFiles {
+		fileSizes = append(fileSizes, changedFiles[i].Size)
+	}
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes)
 	folder.peermanager.sendToAllPeers(syncReqMsg)
 }
 

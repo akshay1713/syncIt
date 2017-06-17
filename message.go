@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/akshay1713/goUtils"
-	"log"
 )
 
 func getPingMsg() []byte {
@@ -20,7 +19,7 @@ func getPongMsg() []byte {
 }
 
 func getFileReqMsg(uniqueID int64, fileName string) []byte {
-	fileReqMsg := make([]byte, 5 + len(fileName) + 4)
+	fileReqMsg := make([]byte, 5+len(fileName)+4)
 	msgLen := len(fileName) + 4
 	goUtils.GetBytesFromUint32(fileReqMsg[0:4], uint32(msgLen)+1)
 	fileReqMsg[4] = 3
@@ -29,12 +28,12 @@ func getFileReqMsg(uniqueID int64, fileName string) []byte {
 	return fileReqMsg
 }
 
-func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string) []byte{
+func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string, fileSizes []uint64) []byte {
 	totalNameLen := 0
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
 	}
-	syncReqMsg := make([]byte, 10 + totalNameLen + 2 + len(fileNames))
+	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames))
 	msgLen := 6 + totalNameLen + 2 + len(fileNames)
 	goUtils.GetBytesFromUint32(syncReqMsg[0:4], uint32(msgLen))
 	syncReqMsg[4] = 2
@@ -45,6 +44,10 @@ func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string) []byte{
 	for i := range fileNames {
 		syncReqMsg[start] = byte(len(fileNames[i]))
 		start++
+	}
+	for i := range fileSizes {
+		goUtils.GetBytesFromUint64(syncReqMsg[start:start+8], fileSizes[i])
+		start += 8
 	}
 	for i := range fileNames {
 		syncReqMsg = append(syncReqMsg, fileNames[i]...)

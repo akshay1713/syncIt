@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sync"
 	"strings"
+	"sync"
 )
 
 type CLIController struct {
-	userIO sync.Mutex
-	ioWait bool
+	userIO    sync.Mutex
+	ioWait    bool
 	inputChan chan string
 }
 
@@ -18,7 +18,7 @@ func (cliController *CLIController) getInput(prompt string) string {
 	cliController.lock()
 	cliController.ioWait = true
 	fmt.Println(prompt)
-	text := <- cliController.inputChan
+	text := <-cliController.inputChan
 	cliController.ioWait = false
 	cliController.unlock()
 	return text
@@ -31,7 +31,6 @@ func (cliController *CLIController) getCommandInput(prompt string) string {
 	trimmedText := strings.Trim(text, "\n")
 	return trimmedText
 }
-
 
 func (cliController *CLIController) print(msg string) {
 	cliController.lock()
@@ -58,7 +57,7 @@ func (cliController *CLIController) printUnsafe(msg string) {
 	fmt.Println(msg)
 }
 
-func (cliController *CLIController) startCli(folder FolderManager){
+func (cliController *CLIController) startCli(folder FolderManager) {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		text, _ := reader.ReadString('\n')
@@ -67,7 +66,7 @@ func (cliController *CLIController) startCli(folder FolderManager){
 			cliController.inputChan <- trimmedText
 			continue
 		}
-		switch  trimmedText{
+		switch trimmedText {
 		case "add":
 			fmt.Println("Asking for folder path")
 			folderPath := cliController.getCommandInput("Enter the folder path to be added:")
