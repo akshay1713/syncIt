@@ -33,8 +33,8 @@ func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string, fileSizes 
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
 	}
-	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames))
-	msgLen := 6 + totalNameLen + 2 + len(fileNames)
+	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames) + 8*len(fileSizes))
+	msgLen := 6 + totalNameLen + 2 + len(fileNames) + 8*len(fileSizes)
 	goUtils.GetBytesFromUint32(syncReqMsg[0:4], uint32(msgLen))
 	syncReqMsg[4] = 2
 	syncReqMsg[5] = diffType

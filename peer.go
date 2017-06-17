@@ -138,7 +138,7 @@ func (peer Peer) syncReqHandler(syncReqMsg []byte) {
 	}
 	fileSizes := []uint64{}
 	for i := 0; i < int(num_files) ; i++ {
-		fileSizes[i] = binary.BigEndian.Uint64(syncReqMsg[start:start+8])
+		fileSizes = append(fileSizes, binary.BigEndian.Uint64(syncReqMsg[start:start+8]))
 		start += 8
 	}
 	log.Println("File sizes are ", fileSizes)
