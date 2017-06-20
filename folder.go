@@ -48,7 +48,7 @@ func (folder FolderManager) addNewFolderToGlobal(folderPath string) {
 }
 
 func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID int64) {
-	globalConfigFile := getGlobalConfig()
+	globalConfigFile := getGlobalConfigFile()
 	configBytes, err := ioutil.ReadFile(globalConfigFile)
 	goUtils.HandleErr(err, "While reading current config file")
 	globalConfigJson := make(map[string]string)
@@ -59,7 +59,7 @@ func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID int64) {
 	ioutil.WriteFile(globalConfigFile, marshalledConfig, 0755)
 }
 
-func getGlobalConfig() string {
+func getGlobalConfigFile() string {
 	user, _ := user.Current()
 	homeDir := user.HomeDir
 	globalConfigFolder := filepath.Join(homeDir, ".syncit")
@@ -77,6 +77,15 @@ func getGlobalConfig() string {
 		config.Close()
 	}
 	return globalConfigFile
+}
+
+func getGlobalConfig() map[string]string {
+	globalConfigFile := getGlobalConfigFile()
+	configBytes, err := ioutil.ReadFile(globalConfigFile)
+	goUtils.HandleErr(err, "While reading global config file")
+	globalConfigJson := make(map[string]string)
+	json.Unmarshal(configBytes, globalConfigJson)
+	return globalConfigJson
 }
 
 func (folder FolderManager) sync(folderPath string) {
@@ -111,11 +120,7 @@ func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncDa
 }
 
 func (folder FolderManager) getAllUniqueIDs() []string {
-	globalConfigFile := getGlobalConfig()
-	configBytes, err := ioutil.ReadFile(globalConfigFile)
-	goUtils.HandleErr(err, "While reading global config file")
-	globalConfigJson := make(map[string]string)
-	json.Unmarshal(configBytes, globalConfigJson)
+	globalConfigJson := getGlobalConfig()
 	uniqueIDs := []string{}
 	for id, _ := range globalConfigJson {
 		uniqueIDs = append(uniqueIDs, id)
@@ -142,3 +147,19 @@ func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) 
 	}
 	folder.updateExistingFolderConfig(folderPath)
 }
+
+func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
+	globalConfigJson := getGlobalConfig()
+	var foundFolderPath string
+	for IDFromConfig, folderPath := range globalConfigJson {
+		idUint64, _ := strconv.ParseUint(IDFromConfig, 10, 32)
+		if uniqueID == uint32(idUint64) {
+			log.Println("Found file ", IDFromConfig, folderPath)
+			foundFolderPath = folderPath
+			break
+		}
+	}
+	filePath := foundFolderPath + fileName
+	return filePath
+}
+

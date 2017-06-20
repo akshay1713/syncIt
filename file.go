@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+	"fmt"
+	"path/filepath"
 )
 
 type TransferFile struct {
@@ -16,6 +18,40 @@ type TransferFile struct {
 	filePtr            *os.File
 	uniqueID           uint32
 }
+
+func (file *TransferFile) getNextBytes() []byte {
+	remainingSize := int(file.fileSize - file.transferredSize)
+	if remainingSize == 0 {
+		return []byte{}
+	}
+	//Transfer in chunks of 4096 bytes
+	bytesToTransfer := 4096
+	if remainingSize < 4096 {
+		bytesToTransfer = remainingSize
+		defer file.filePtr.Close()
+		fmt.Println("Finished sending file", file.filePath)
+	}
+	nextBytes := make([]byte, int(bytesToTransfer))
+	file.transferredSize += uint64(bytesToTransfer)
+	file.filePtr.Read(nextBytes)
+	return nextBytes
+}
+
+func (file TransferFile) getFileName() string {
+	return filepath.Base(file.filePath)
+}
+
+func (file TransferFile) writeBytes(fileData []byte) {
+	file.filePtr.Write(fileData)
+	file.transferredSize += uint64(len(fileData))
+	if file.transferredSize == file.fileSize {
+		file.filePtr.Close()
+		fmt.Println("Finished receiving file", file.getFileName())
+	}
+}
+
+type MultipleTransferFiles []TransferFile
+
 
 func newTransferFile(filePath string, fileSize uint64) TransferFile{
 	transferFile := TransferFile{}

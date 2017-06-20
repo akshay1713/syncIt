@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"os"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -73,6 +74,7 @@ func (peer *Peer) listenForMessages() {
 			peer.syncReqHandler(msg)
 		case "file_req":
 			peer.fileReqHandler(msg)
+		case "file_data":
 		}
 
 	}
@@ -122,13 +124,62 @@ func (peer Peer) pingHandler() {
 	//fmt.Println("Ping received")
 }
 
-func (peer Peer) fileReqHandler(fileReqMsg []byte) {
-	uniqueID := int64(binary.BigEndian.Uint32(fileReqMsg[1:5]))
-	fileName := string(fileReqMsg[5:])
-	log.Println("SyncFile req message received for ", uniqueID, fileName)
+func (peer *Peer) sendFile(file TransferFile){
+	fileData := file.getNextBytes()
+	for len(fileData) > 0 {
+		fileDataMsg := getFileDataMsg(fileData, file.uniqueID, file.getFileName())
+		peer.updateFile(file, true)
+		peer.sendMessage(fileDataMsg)
+		fileData = file.getNextBytes()
+	}
 }
 
-func (peer Peer) syncReqHandler(syncReqMsg []byte) {
+func (peer *Peer) fileDataHandler(fileDataMsg []byte){
+	var file TransferFile
+	uniqueID, fileName, fileData := extractFileData(fileDataMsg)
+	for i := range peer.receivingFiles {
+		if peer.receivingFiles[i].uniqueID == uniqueID && peer.receivingFiles[i].getFileName() == fileName {
+			file = peer.receivingFiles[i]
+			break
+		}
+	}
+	file.writeBytes(fileData)
+	peer.updateFile(file, false)
+}
+
+func (peer *Peer) updateFile(file TransferFile, updateSendingFiles bool) {
+	if updateSendingFiles {
+		for i := range peer.sendingFiles {
+			if peer.sendingFiles[i].uniqueID == file.uniqueID && peer.sendingFiles[i].filePath == file.filePath {
+				peer.sendingFiles[i] = file
+				return
+			}
+		}
+	} else {
+		for i := range peer.receivingFiles {
+			if peer.receivingFiles[i].uniqueID == file.uniqueID && peer.receivingFiles[i].filePath == file.filePath {
+				peer.receivingFiles[i] = file
+				return
+			}
+		}
+	}
+}
+
+func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
+	uniqueID := binary.BigEndian.Uint32(fileReqMsg[1:5])
+	fileName := string(fileReqMsg[5:])
+	log.Println("SyncFile req message received for ", uniqueID, fileName)
+	filePath := peer.folderManager.getFilePath(uniqueID, fileName)
+	filePtr, err := os.Open(filePath)
+	goUtils.HandleErr(err, "While opening file for reading")
+	fileStat, err := filePtr.Stat()
+	goUtils.HandleErr(err, "While geting file stats")
+	fileSize := fileStat.Size()
+	transferFile := TransferFile{filePath: filePath, filePtr: filePtr, fileSize: uint64(fileSize), transferredSize: 0}
+	peer.sendingFiles = append(peer.sendingFiles, transferFile)
+}
+
+func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
 	folderID := int64(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
@@ -158,6 +209,11 @@ func (peer Peer) syncReqHandler(syncReqMsg []byte) {
 			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
 			for i := range fileNames {
 				fileReqMsg := getFileReqMsg(folderID, fileNames[i])
+				filePath := directory + "/" + folderName + fileNames[i]
+				filePtr, err := os.Open(filePath)
+				goUtils.HandleErr(err, "While opening file for writing")
+				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr}
+				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}
 		}
