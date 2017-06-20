@@ -37,7 +37,7 @@ func (folder FolderManager) setupFolderConfig(folderPath string) string {
 
 func (folder FolderManager) add(folderPath string) {
 	configFile := folder.setupFolderConfig(folderPath)
-	_ = addMultipleFiles(folderPath, configFile)
+	_ = addMultipleFiles(folderPath, configFile, true)
 	folder.addNewFolderToGlobal(folderPath)
 }
 
@@ -84,7 +84,7 @@ func getGlobalConfig() map[string]string {
 	configBytes, err := ioutil.ReadFile(globalConfigFile)
 	goUtils.HandleErr(err, "While reading global config file")
 	globalConfigJson := make(map[string]string)
-	json.Unmarshal(configBytes, globalConfigJson)
+	json.Unmarshal(configBytes, &globalConfigJson)
 	return globalConfigJson
 }
 
@@ -151,15 +151,14 @@ func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) 
 func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
 	globalConfigJson := getGlobalConfig()
 	var foundFolderPath string
-	for IDFromConfig, folderPath := range globalConfigJson {
+	for folderPath, IDFromConfig := range globalConfigJson {
 		idUint64, _ := strconv.ParseUint(IDFromConfig, 10, 32)
 		if uniqueID == uint32(idUint64) {
-			log.Println("Found file ", IDFromConfig, folderPath)
 			foundFolderPath = folderPath
 			break
 		}
 	}
-	filePath := foundFolderPath + fileName
+	filePath := foundFolderPath + "/" + fileName
 	return filePath
 }
 

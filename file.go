@@ -77,7 +77,7 @@ type SyncData struct {
 	LastSynced int64      `json:"last_synced"`
 }
 
-func addMultipleFiles(folderPath string, configPath string) []SyncFile {
+func addMultipleFiles(folderPath string, configPath string, updateUniqueID bool) []SyncFile {
 	files := []SyncFile{}
 	fileNames := getFileNamesInFolder(folderPath)
 	for i := range fileNames {
@@ -87,14 +87,19 @@ func addMultipleFiles(folderPath string, configPath string) []SyncFile {
 		fileSize := uint64(fileStat.Size())
 		files = append(files, SyncFile{Md5: md5, Name: fileNames[i], Size: fileSize})
 	}
-	syncData := SyncData{Files: files, UniqueID: time.Now().UTC().Unix()}
+	syncData := SyncData{Files: files}
+	if updateUniqueID {
+		syncData.UniqueID = time.Now().UTC().Unix()
+	} else {
+		syncData.UniqueID = getSyncData(folderPath, configPath).UniqueID
+	}
 	syncDataBytes, _ := json.Marshal(syncData)
 	ioutil.WriteFile(configPath, syncDataBytes, 0755)
 	return files
 }
 
 func (syncData *SyncData) update(folderPath string, configPath string) {
-	syncData.Files = addMultipleFiles(folderPath, configPath)
+	syncData.Files = addMultipleFiles(folderPath, configPath, false)
 	syncData.Synced = true
 	syncData.LastSynced = time.Now().UTC().Unix()
 }

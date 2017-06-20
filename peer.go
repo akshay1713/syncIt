@@ -168,10 +168,9 @@ func (peer *Peer) updateFile(file TransferFile, updateSendingFiles bool) {
 func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 	uniqueID := binary.BigEndian.Uint32(fileReqMsg[1:5])
 	fileName := string(fileReqMsg[5:])
-	log.Println("SyncFile req message received for ", uniqueID, fileName)
 	filePath := peer.folderManager.getFilePath(uniqueID, fileName)
 	filePtr, err := os.Open(filePath)
-	goUtils.HandleErr(err, "While opening file for reading")
+	goUtils.HandleErr(err, "While opening file for reading " + filePath)
 	fileStat, err := filePtr.Stat()
 	goUtils.HandleErr(err, "While geting file stats")
 	fileSize := fileStat.Size()
