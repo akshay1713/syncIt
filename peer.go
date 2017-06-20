@@ -209,7 +209,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
 			for i := range fileNames {
 				fileReqMsg := getFileReqMsg(folderID, fileNames[i])
-				filePath := directory + "/" + folderName + fileNames[i]
+				filePath := directory + "/" + folderName + "/" + fileNames[i]
 				filePtr, err := os.Open(filePath)
 				goUtils.HandleErr(err, "While opening file for writing")
 				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr}
