@@ -75,6 +75,7 @@ func (peer *Peer) listenForMessages() {
 		case "file_req":
 			peer.fileReqHandler(msg)
 		case "file_data":
+			peer.fileDataHandler(msg)
 		}
 
 	}
@@ -125,6 +126,7 @@ func (peer Peer) pingHandler() {
 }
 
 func (peer *Peer) sendFile(file TransferFile){
+	log.Println("Sending file ", file)
 	fileData := file.getNextBytes()
 	for len(fileData) > 0 {
 		fileDataMsg := getFileDataMsg(fileData, file.uniqueID, file.getFileName())
@@ -176,7 +178,9 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 	fileSize := fileStat.Size()
 	transferFile := TransferFile{filePath: filePath, filePtr: filePtr, fileSize: uint64(fileSize), transferredSize: 0}
 	peer.sendingFiles = append(peer.sendingFiles, transferFile)
+	go peer.sendFile(transferFile)
 }
+
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
