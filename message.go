@@ -89,7 +89,6 @@ func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string, fileSizes 
 		start += 8
 	}
 	for i := range fileNames {
-		syncReqMsg = append(syncReqMsg, fileNames[i]...)
 		copy(syncReqMsg[start:start+len(fileNames[i])], fileNames[i])
 		start += len(fileNames[i])
 	}
