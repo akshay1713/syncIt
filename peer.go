@@ -31,6 +31,8 @@ type Peer struct {
 }
 
 func (peer *Peer) initPeer() {
+	peer.sendingFiles = []TransferFile{}
+	peer.receivingFiles = []TransferFile{}
 	peer.createMsgChan()
 	go peer.listenForMessages()
 	peer.setPing()
@@ -176,7 +178,7 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 	fileStat, err := filePtr.Stat()
 	goUtils.HandleErr(err, "While geting file stats")
 	fileSize := fileStat.Size()
-	transferFile := TransferFile{filePath: filePath, filePtr: filePtr, fileSize: uint64(fileSize), transferredSize: 0}
+	transferFile := TransferFile{filePath: filePath, filePtr: filePtr, fileSize: uint64(fileSize), transferredSize: 0, uniqueID: uniqueID}
 	peer.sendingFiles = append(peer.sendingFiles, transferFile)
 	go peer.sendFile(transferFile)
 }
@@ -184,7 +186,7 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
-	folderID := int64(binary.BigEndian.Uint32(syncReqMsg[4:8]))
+	folderID := uint32(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
 	name_lengths := []byte{}
 	for ; start < int(num_files)+8; start++ {
@@ -209,13 +211,13 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 		if userResponse == "y" {
 			directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
 			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
-			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
+			peer.folderManager.addPeerFolder(directory, folderName, int64(folderID), fileNames)
 			for i := range fileNames {
-				fileReqMsg := getFileReqMsg(folderID, fileNames[i])
+				fileReqMsg := getFileReqMsg(int64(folderID), fileNames[i])
 				filePath := directory + "/" + folderName + "/" + fileNames[i]
 				filePtr, err := os.Open(filePath)
 				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr}
+				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID:folderID}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}
