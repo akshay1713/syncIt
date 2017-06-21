@@ -42,7 +42,8 @@ func (file TransferFile) getFileName() string {
 }
 
 func (file *TransferFile) writeBytes(fileData []byte) {
-	file.filePtr.Write(fileData)
+	_, err := file.filePtr.Write(fileData)
+	goUtils.HandleErr(err, "While writing to file")
 	file.transferredSize += uint64(len(fileData))
 	if file.transferredSize == file.fileSize {
 		file.filePtr.Close()
