@@ -37,14 +37,15 @@ func (folder FolderManager) setupFolderConfig(folderPath string) string {
 
 func (folder FolderManager) add(folderPath string) {
 	configFile := folder.setupFolderConfig(folderPath)
-	_ = addMultipleFiles(folderPath, configFile, true)
-	folder.addNewFolderToGlobal(folderPath)
+	uniqueID := folder.addNewFolderToGlobal(folderPath)
+	_ = addMultipleFiles(folderPath, configFile, uniqueID)
 }
 
-func (folder FolderManager) addNewFolderToGlobal(folderPath string) {
+func (folder FolderManager) addNewFolderToGlobal(folderPath string) uint32{
 	uniqueID := time.Now().UTC().Unix()
 	absFolderPath, _ := filepath.Abs(folderPath)
 	folder.addToGlobal(absFolderPath, uniqueID)
+	return uint32(uniqueID)
 }
 
 func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID int64) {

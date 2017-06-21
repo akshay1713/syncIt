@@ -67,7 +67,7 @@ func getFileInfoMsg(fileLen uint64, fileName string, md5 string, uniqueID uint32
 	return fileMsg
 }
 
-func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string, fileSizes []uint64) []byte {
+func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes []uint64) []byte {
 	totalNameLen := 0
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
@@ -78,7 +78,7 @@ func getSyncReqMsg(uniqueID int64, diffType byte, fileNames []string, fileSizes 
 	syncReqMsg[4] = 2
 	syncReqMsg[5] = diffType
 	goUtils.GetBytesFromUint16(syncReqMsg[6:8], uint16(len(fileNames)))
-	goUtils.GetBytesFromUint32(syncReqMsg[8:12], uint32(uniqueID))
+	goUtils.GetBytesFromUint32(syncReqMsg[8:12], uniqueID)
 	start := 12
 	for i := range fileNames {
 		syncReqMsg[start] = byte(len(fileNames[i]))
