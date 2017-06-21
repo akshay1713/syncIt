@@ -41,7 +41,7 @@ func (file TransferFile) getFileName() string {
 	return filepath.Base(file.filePath)
 }
 
-func (file TransferFile) writeBytes(fileData []byte) {
+func (file *TransferFile) writeBytes(fileData []byte) {
 	file.filePtr.Write(fileData)
 	file.transferredSize += uint64(len(fileData))
 	if file.transferredSize == file.fileSize {
