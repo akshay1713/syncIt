@@ -170,8 +170,7 @@ func (peer *Peer) updateFile(file TransferFile, updateSendingFiles bool) {
 }
 
 func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
-	uniqueID := binary.BigEndian.Uint32(fileReqMsg[1:5])
-	fileName := string(fileReqMsg[5:])
+	uniqueID, fileName := extractFileReqMsg(fileReqMsg)
 	filePath := peer.folderManager.getFilePath(uniqueID, fileName)
 	filePtr, err := os.Open(filePath)
 	goUtils.HandleErr(err, "While opening file for reading " + filePath)
@@ -185,24 +184,7 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
-	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
-	folderID := uint32(binary.BigEndian.Uint32(syncReqMsg[4:8]))
-	start := 8
-	name_lengths := []byte{}
-	for ; start < int(num_files)+8; start++ {
-		name_lengths = append(name_lengths, syncReqMsg[start])
-	}
-	fileSizes := []uint64{}
-	for i := 0; i < int(num_files) ; i++ {
-		fileSizes = append(fileSizes, binary.BigEndian.Uint64(syncReqMsg[start:start+8]))
-		start += 8
-	}
-	log.Println("File sizes are ", fileSizes)
-	fileNames := []string{}
-	for i := range name_lengths {
-		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))
-		start += int(name_lengths[i])
-	}
+	folderID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
 	if goUtils.Pos(uniqueIDs, string(folderID)) == -1 {
 		peer.cliController.print(peer.username + " wants to sync a folder with the following details\n" +
@@ -211,7 +193,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 		if userResponse == "y" {
 			directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
 			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
-			peer.folderManager.addPeerFolder(directory, folderName, int64(folderID), fileNames)
+			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
 			for i := range fileNames {
 				fileReqMsg := getFileReqMsg(int64(folderID), fileNames[i])
 				filePath := directory + "/" + folderName + "/" + fileNames[i]
@@ -224,6 +206,8 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 		}
 	} else {
 		//sync existing folder here
+		log.Println("Received sync request for folder with details \n" +
+		"uniqueid - " + string(folderID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
 	}
 }
 

@@ -29,6 +29,12 @@ func getFileReqMsg(uniqueID int64, fileName string) []byte {
 	return fileReqMsg
 }
 
+func extractFileReqMsg(fileReqMsg []byte) (uint32, string){
+	uniqueID := binary.BigEndian.Uint32(fileReqMsg[1:5])
+	fileName := string(fileReqMsg[5:])
+	return uniqueID, fileName
+}
+
 func getFileDataMsg(fileData []byte, uniqueID uint32, fileName string) []byte {
 	fileDataMsg := make([]byte, 5+len(fileData)+32 + len(fileName) + 1)
 	msgLen := len(fileData) + 32 + len(fileName) + 1
@@ -93,6 +99,27 @@ func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes
 		start += len(fileNames[i])
 	}
 	return syncReqMsg
+}
+
+func extractSyncReqMsg(syncReqMsg []byte) (uint32, []uint64, []string){
+	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
+	folderID := uint32(binary.BigEndian.Uint32(syncReqMsg[4:8]))
+	start := 8
+	name_lengths := []byte{}
+	for ; start < int(num_files)+8; start++ {
+		name_lengths = append(name_lengths, syncReqMsg[start])
+	}
+	fileSizes := []uint64{}
+	for i := 0; i < int(num_files) ; i++ {
+		fileSizes = append(fileSizes, binary.BigEndian.Uint64(syncReqMsg[start:start+8]))
+		start += 8
+	}
+	fileNames := []string{}
+	for i := range name_lengths {
+		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))
+		start += int(name_lengths[i])
+	}
+	return folderID, fileSizes, fileNames
 }
 
 func getMsgType(msg []byte) string {

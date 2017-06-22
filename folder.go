@@ -42,22 +42,93 @@ func (folder FolderManager) add(folderPath string) {
 }
 
 func (folder FolderManager) addNewFolderToGlobal(folderPath string) uint32{
-	uniqueID := time.Now().UTC().Unix()
+	uniqueID := getNewUniqueID()
 	absFolderPath, _ := filepath.Abs(folderPath)
 	folder.addToGlobal(absFolderPath, uniqueID)
 	return uint32(uniqueID)
 }
 
-func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID int64) {
+func (folder FolderManager) addToGlobal(absFolderPath string, uniqueID uint32) {
 	globalConfigFile := getGlobalConfigFile()
 	configBytes, err := ioutil.ReadFile(globalConfigFile)
 	goUtils.HandleErr(err, "While reading current config file")
 	globalConfigJson := make(map[string]string)
 	json.Unmarshal(configBytes, &globalConfigJson)
 	log.Println("Current config is ", globalConfigJson)
-	globalConfigJson[absFolderPath] = strconv.FormatInt(uniqueID, 10)
+	globalConfigJson[strconv.FormatInt(int64(uniqueID), 10)] = absFolderPath
 	marshalledConfig, _ := json.Marshal(globalConfigJson)
 	ioutil.WriteFile(globalConfigFile, marshalledConfig, 0755)
+}
+
+func (folder FolderManager) sync(folderPath string) {
+	syncData := folder.updateExistingFolderConfig(folderPath)
+	filesInFolder := syncData.getAllFiles()
+	fileNames := []string{}
+	for i := range filesInFolder {
+		fileNames = append(fileNames, filesInFolder[i].Name)
+	}
+	fileSizes := []uint64{}
+	for i := range filesInFolder {
+		fileSizes = append(fileSizes, filesInFolder[i].Size)
+	}
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes)
+	folder.peermanager.sendToAllPeers(syncReqMsg)
+}
+
+func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncData {
+	syncFolder := folderPath + "/.syncIt"
+	if _, err := os.Stat(syncFolder); os.IsNotExist(err) {
+		folder.cliController.print("This is an unsynced folder, adding it for syncing")
+		folder.add(folderPath)
+	}
+	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
+	syncData.update(folderPath, syncFolder+"/.syncit.json")
+	return syncData
+}
+
+func (folder FolderManager) getAllUniqueIDs() []string {
+	globalConfigJson := getGlobalConfig()
+	uniqueIDs := []string{}
+	for id, _:= range globalConfigJson {
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	return uniqueIDs
+}
+
+func (folder FolderManager) getAllFolders() []string {
+	globalConfigJson := getGlobalConfig()
+	absFolderPaths := []string{}
+	for _, absFolderPath:= range globalConfigJson {
+		absFolderPaths = append(absFolderPaths, absFolderPath)
+	}
+	return absFolderPaths
+}
+
+func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID uint32, fileNames []string) {
+	folderPath := directory + "/" + folderName
+	err := os.Mkdir(folderPath, 0755)
+	goUtils.HandleErr(err, "While creating peer folder")
+	folder.setupFolderConfig(folderPath)
+	absFolderPath, err := filepath.Abs(folderPath)
+	goUtils.HandleErr(err, "While getting absolute folder path")
+	folder.addToGlobal(absFolderPath, uniqueID)
+	folder.addPeerFiles(folderPath, fileNames)
+}
+
+func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) {
+	for i := range fileNames {
+		log.Println("Creating file ", fileNames[i])
+		_, err := os.Create(folderPath + "/" + fileNames[i])
+		goUtils.HandleErr(err, "While creating file")
+	}
+	folder.updateExistingFolderConfig(folderPath)
+}
+
+func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
+	globalConfigJson := getGlobalConfig()
+	uniqueIDString := strconv.FormatInt(int64(uniqueID), 10)
+	folderPath := globalConfigJson[uniqueIDString]
+	return folderPath + "/" + fileName
 }
 
 func getGlobalConfigFile() string {
@@ -89,77 +160,6 @@ func getGlobalConfig() map[string]string {
 	return globalConfigJson
 }
 
-func (folder FolderManager) sync(folderPath string) {
-	syncData := folder.updateExistingFolderConfig(folderPath)
-	changedFiles := syncData.getAllFiles()
-	if len(changedFiles) == 0 {
-		folder.cliController.print("No files changed. Resync not required.")
-		return
-	}
-	fileNames := []string{}
-	for i := range changedFiles {
-		fileNames = append(fileNames, changedFiles[i].Name)
-	}
-	fileSizes := []uint64{}
-	for i := range changedFiles {
-		fileSizes = append(fileSizes, changedFiles[i].Size)
-	}
-	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes)
-	folder.peermanager.sendToAllPeers(syncReqMsg)
+func getNewUniqueID() uint32 {
+	return uint32(time.Now().UTC().Unix())
 }
-
-func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncData {
-	syncFolder := folderPath + "/.syncIt"
-	if _, err := os.Stat(syncFolder); os.IsNotExist(err) {
-		folder.cliController.print("This is an unsynced folder, adding it for syncing")
-		folder.add(folderPath)
-	}
-	//filesInFolder := getFileNamesInFolder(folderPath)
-	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
-	syncData.update(folderPath, syncFolder+"/.syncit.json")
-	return syncData
-}
-
-func (folder FolderManager) getAllUniqueIDs() []string {
-	globalConfigJson := getGlobalConfig()
-	uniqueIDs := []string{}
-	for id, _ := range globalConfigJson {
-		uniqueIDs = append(uniqueIDs, id)
-	}
-	return uniqueIDs
-}
-
-func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID int64, fileNames []string) {
-	folderPath := directory + "/" + folderName
-	err := os.Mkdir(folderPath, 0755)
-	goUtils.HandleErr(err, "While creating peer folder")
-	folder.setupFolderConfig(folderPath)
-	absPath, err := filepath.Abs(folderPath)
-	goUtils.HandleErr(err, "While getting absolute folder path")
-	folder.addToGlobal(absPath, uniqueID)
-	folder.addPeerFiles(folderPath, fileNames)
-}
-
-func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) {
-	for i := range fileNames {
-		log.Println("Creating file ", fileNames[i])
-		_, err := os.Create(folderPath + "/" + fileNames[i])
-		goUtils.HandleErr(err, "While creating file")
-	}
-	folder.updateExistingFolderConfig(folderPath)
-}
-
-func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
-	globalConfigJson := getGlobalConfig()
-	var foundFolderPath string
-	for folderPath, IDFromConfig := range globalConfigJson {
-		idUint64, _ := strconv.ParseUint(IDFromConfig, 10, 32)
-		if uniqueID == uint32(idUint64) {
-			foundFolderPath = folderPath
-			break
-		}
-	}
-	filePath := foundFolderPath + "/" + fileName
-	return filePath
-}
-
