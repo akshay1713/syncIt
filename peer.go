@@ -184,22 +184,22 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
-	folderID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
+	uniqueID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
-	if goUtils.Pos(uniqueIDs, string(folderID)) == -1 {
+	if goUtils.Pos(uniqueIDs, string(uniqueID)) == -1 {
 		peer.cliController.print(peer.username + " wants to sync a folder with the following details\n" +
-			"uniqueid - " + string(folderID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+			"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
 		userResponse := peer.cliController.getInput("Do you want to accept this folder?[y/n]")
 		if userResponse == "y" {
 			directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
 			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
-			peer.folderManager.addPeerFolder(directory, folderName, folderID, fileNames)
+			peer.folderManager.addPeerFolder(directory, folderName, uniqueID, fileNames)
 			for i := range fileNames {
-				fileReqMsg := getFileReqMsg(int64(folderID), fileNames[i])
+				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i])
 				filePath := directory + "/" + folderName + "/" + fileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC | os.O_WRONLY, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID:folderID}
+				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID:uniqueID}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}
@@ -207,7 +207,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	} else {
 		//sync existing folder here
 		log.Println("Received sync request for folder with details \n" +
-		"uniqueid - " + string(folderID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+		"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
 	}
 }
 

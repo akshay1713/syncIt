@@ -108,20 +108,20 @@ func (folder FolderManager) addPeerFolder(directory string, folderName string, u
 	folderPath := directory + "/" + folderName
 	err := os.Mkdir(folderPath, 0755)
 	goUtils.HandleErr(err, "While creating peer folder")
-	folder.setupFolderConfig(folderPath)
+	folderConfigFile := folder.setupFolderConfig(folderPath)
 	absFolderPath, err := filepath.Abs(folderPath)
 	goUtils.HandleErr(err, "While getting absolute folder path")
 	folder.addToGlobal(absFolderPath, uniqueID)
-	folder.addPeerFiles(folderPath, fileNames)
+	folder.addPeerFiles(folderPath, fileNames, folderConfigFile, uniqueID)
 }
 
-func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string) {
+func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string, configPath string, uniqueID uint32) {
 	for i := range fileNames {
 		log.Println("Creating file ", fileNames[i])
 		_, err := os.Create(folderPath + "/" + fileNames[i])
 		goUtils.HandleErr(err, "While creating file")
 	}
-	folder.updateExistingFolderConfig(folderPath)
+	addMultipleFiles(folderPath, configPath, uniqueID)
 }
 
 func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
