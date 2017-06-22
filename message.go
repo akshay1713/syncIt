@@ -101,7 +101,7 @@ func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes
 	return syncReqMsg
 }
 
-func extractSyncReqMsg(syncReqMsg []byte) (uint32, []uint64, []string){
+func extractSyncReqMsg(syncReqMsg []byte) (byte, uint32, []uint64, []string){
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
 	folderID := uint32(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
@@ -119,7 +119,7 @@ func extractSyncReqMsg(syncReqMsg []byte) (uint32, []uint64, []string){
 		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))
 		start += int(name_lengths[i])
 	}
-	return folderID, fileSizes, fileNames
+	return syncReqMsg[1], folderID, fileSizes, fileNames
 }
 
 func getMsgType(msg []byte) string {

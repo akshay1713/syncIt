@@ -185,7 +185,7 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
-	uniqueID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
+	diffType, uniqueID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
 	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
 	if goUtils.Pos(uniqueIDs, uniqueIDstring) == -1 {
@@ -208,8 +208,21 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 		}
 	} else {
 		//sync existing folder here
-		log.Println("Received sync request for folder with details \n" +
-		"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+		if diffType == 1 {
+			log.Println("Received sync request for folder with details \n" +
+				"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+			peer.folderManager.backupExistingFiles(uniqueID)
+			folderPath := peer.folderManager.getFolderForID(uniqueID)
+			for i := range fileNames {
+				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i])
+				filePath := folderPath + "/" + fileNames[i]
+				filePtr, err := os.OpenFile(filePath, os.O_TRUNC | os.O_WRONLY, 0755)
+				goUtils.HandleErr(err, "While opening file for writing")
+				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID:uniqueID}
+				peer.receivingFiles = append(peer.receivingFiles, transferFile)
+				peer.sendMessage(fileReqMsg)
+			}
+		}
 	}
 }
 

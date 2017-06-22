@@ -104,6 +104,25 @@ func (folder FolderManager) getAllFolders() []string {
 	return absFolderPaths
 }
 
+func (folder FolderManager) getFolderForID(uniqueID uint32) string {
+	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
+	return getGlobalConfig()[uniqueIDstring]
+}
+
+func (folder FolderManager) backupExistingFiles(uniqueID uint32) {
+	folderPath := folder.getFolderForID(uniqueID)
+	syncFolder := folderPath + "/.syncIt"
+	configPath := syncFolder + "/.syncIt.json"
+	syncData := getSyncData(folderPath, configPath)
+	files := syncData.Files
+	for i := range files {
+		log.Println("Moving ", files[i].Name)
+		currentFilePath := folderPath + "/" + files[i].Name
+		newFilePath := syncFolder + "/" + files[i].Name + ".bak"
+		os.Rename(currentFilePath, newFilePath)
+	}
+}
+
 func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID uint32, fileNames []string) {
 	folderPath := directory + "/" + folderName
 	err := os.Mkdir(folderPath, 0755)
