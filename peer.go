@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"os"
+	"strconv"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -128,7 +129,7 @@ func (peer Peer) pingHandler() {
 }
 
 func (peer *Peer) sendFile(file TransferFile){
-	log.Println("Sending file ", file)
+	log.Println("Sending file ", file.filePath)
 	fileData := file.getNextBytes()
 	for len(fileData) > 0 {
 		fileDataMsg := getFileDataMsg(fileData, file.uniqueID, file.getFileName())
@@ -186,7 +187,8 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	uniqueID, fileSizes, fileNames := extractSyncReqMsg(syncReqMsg)
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
-	if goUtils.Pos(uniqueIDs, string(uniqueID)) == -1 {
+	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
+	if goUtils.Pos(uniqueIDs, uniqueIDstring) == -1 {
 		peer.cliController.print(peer.username + " wants to sync a folder with the following details\n" +
 			"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
 		userResponse := peer.cliController.getInput("Do you want to accept this folder?[y/n]")
