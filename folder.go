@@ -29,7 +29,7 @@ func (folder FolderManager) setupFolderConfig(folderPath string) string {
 		folder.cliController.print("Error while creating sync config directory " + string(err.Error()))
 		return ""
 	}
-	configFile := syncFolder + "/.syncit.json"
+	configFile := syncFolder + "/.syncIt.json"
 	_, err = os.Create(configFile)
 	goUtils.HandleErr(err, "Error while creating config file:")
 	return configFile
@@ -81,8 +81,8 @@ func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncDa
 		folder.cliController.print("This is an unsynced folder, adding it for syncing")
 		folder.add(folderPath)
 	}
-	syncData := getSyncData(folderPath, syncFolder+"/.syncit.json")
-	syncData.update(folderPath, syncFolder+"/.syncit.json")
+	syncData := getSyncData(folderPath, syncFolder+"/.syncIt.json")
+	syncData.update(folderPath, syncFolder+"/.syncIt.json")
 	return syncData
 }
 
@@ -153,7 +153,7 @@ func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) strin
 func getGlobalConfigFile() string {
 	user, _ := user.Current()
 	homeDir := user.HomeDir
-	globalConfigFolder := filepath.Join(homeDir, ".syncit")
+	globalConfigFolder := filepath.Join(homeDir, ".syncIt")
 	if _, err := os.Stat(globalConfigFolder); os.IsNotExist(err) {
 		log.Println("Creating config directory", globalConfigFolder)
 		err := os.Mkdir(globalConfigFolder, 0755)
