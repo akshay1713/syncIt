@@ -231,7 +231,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			for i := range changedFileNames {
 				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i])
 				filePath := folderPath + "/" + changedFileNames[i]
-				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
+				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
 				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: changedFileSizes[i], filePtr: filePtr, uniqueID: uniqueID}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
