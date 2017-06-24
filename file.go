@@ -2,21 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/akshay1713/goUtils"
 	"io/ioutil"
 	"os"
-	"time"
-	"fmt"
 	"path/filepath"
+	"time"
 )
 
 type TransferFile struct {
-	filePath           string
-	fileSize           uint64
-	transferredSize    uint64
-	md5                string
-	filePtr            *os.File
-	uniqueID           uint32
+	filePath        string
+	fileSize        uint64
+	transferredSize uint64
+	md5             string
+	filePtr         *os.File
+	uniqueID        uint32
 }
 
 func (file *TransferFile) getNextBytes() []byte {
@@ -53,11 +53,10 @@ func (file *TransferFile) writeBytes(fileData []byte) {
 
 type MultipleTransferFiles []TransferFile
 
-
-func newTransferFile(filePath string, fileSize uint64) TransferFile{
+func newTransferFile(filePath string, fileSize uint64) TransferFile {
 	transferFile := TransferFile{}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		transferFile.filePtr, _ = os.OpenFile(filePath, os.O_RDWR | os.O_CREATE, 0755)
+		transferFile.filePtr, _ = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0755)
 	} else {
 		transferFile.filePtr, _ = os.Open(filePath)
 	}
@@ -66,32 +65,18 @@ func newTransferFile(filePath string, fileSize uint64) TransferFile{
 }
 
 type SyncFile struct {
-	Md5  string `json:"md5"`
-	Name string `json:"name"`
-	Size uint64 `json:"size"`
+	Md5         string   `json:"md5"`
+	Name        string   `json:"name"`
+	Size        uint64   `json:"size"`
+	PieceHashes []string `json:"piece_hashes"`
+	PieceCount  uint32   `json:"piece_count"`
 }
 
 type SyncData struct {
-	UniqueID   uint32      `json:"unique_id"`
+	UniqueID   uint32     `json:"unique_id"`
 	Files      []SyncFile `json:"files"`
 	Synced     bool       `json:"synced"`
 	LastSynced int64      `json:"last_synced"`
-}
-
-func addMultipleFiles(folderPath string, configPath string, uniqueID uint32) []SyncFile {
-	files := []SyncFile{}
-	fileNames := getFileNamesInFolder(folderPath)
-	for i := range fileNames {
-		md5, _ := getMD5Hash(folderPath + "/" + fileNames[i])
-		filePtr, _ := os.Open(folderPath + "/" + fileNames[i])
-		fileStat, _ := filePtr.Stat()
-		fileSize := uint64(fileStat.Size())
-		files = append(files, SyncFile{Md5: md5, Name: fileNames[i], Size: fileSize})
-	}
-	syncData := SyncData{Files: files, UniqueID: uniqueID}
-	syncDataBytes, _ := json.Marshal(syncData)
-	ioutil.WriteFile(configPath, syncDataBytes, 0755)
-	return files
 }
 
 func (syncData *SyncData) update(folderPath string, configPath string) {
@@ -123,4 +108,41 @@ func getSyncData(folderPath string, configPath string) SyncData {
 	goUtils.HandleErr(err, "Error while reading sync config file")
 	json.Unmarshal(syncDataBytes, &syncData)
 	return syncData
+}
+
+func addMultipleFiles(folderPath string, configPath string, uniqueID uint32) []SyncFile {
+	files := []SyncFile{}
+	fileNames := getFileNamesInFolder(folderPath)
+	for i := range fileNames {
+		md5, _ := getMD5Hash(folderPath + "/" + fileNames[i])
+		filePtr, _ := os.Open(folderPath + "/" + fileNames[i])
+		fileStat, _ := filePtr.Stat()
+		fileSize := uint64(fileStat.Size())
+		pieceHashes := []string{}
+		pieceCount := 0
+		for readSize := uint64(0); readSize < fileSize; {
+			remaining := fileSize - readSize
+			if remaining > 524288 {
+				remaining = 524288
+			}
+			nextBytes := make([]byte, remaining)
+			filePtr.Read(nextBytes)
+			sha1Bytes := getSha1(nextBytes)
+			pieceHashes = append(pieceHashes, string(sha1Bytes))
+			pieceCount++
+			readSize += remaining
+		}
+		files = append(files, SyncFile{
+			Md5:         md5,
+			Name:        fileNames[i],
+			Size:        fileSize,
+			PieceCount:  uint32(pieceCount),
+			PieceHashes: pieceHashes,
+		})
+
+	}
+	syncData := SyncData{Files: files, UniqueID: uniqueID}
+	syncDataBytes, _ := json.Marshal(syncData)
+	ioutil.WriteFile(configPath, syncDataBytes, 0755)
+	return files
 }

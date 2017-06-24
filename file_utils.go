@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"io"
 	"io/ioutil"
@@ -39,4 +40,11 @@ func getFileNamesInFolder(folderPath string) []string {
 		}
 	}
 	return filesInFolder
+}
+
+func getSha1(target []byte) string {
+	h := sha1.New()
+	h.Write(target)
+	sha1hash := hex.EncodeToString(h.Sum(nil))
+	return sha1hash
 }

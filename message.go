@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/akshay1713/goUtils"
 	"encoding/binary"
+	"github.com/akshay1713/goUtils"
 )
 
 func getPingMsg() []byte {
@@ -29,31 +29,31 @@ func getFileReqMsg(uniqueID int64, fileName string) []byte {
 	return fileReqMsg
 }
 
-func extractFileReqMsg(fileReqMsg []byte) (uint32, string){
+func extractFileReqMsg(fileReqMsg []byte) (uint32, string) {
 	uniqueID := binary.BigEndian.Uint32(fileReqMsg[1:5])
 	fileName := string(fileReqMsg[5:])
 	return uniqueID, fileName
 }
 
 func getFileDataMsg(fileData []byte, uniqueID uint32, fileName string) []byte {
-	fileDataMsg := make([]byte, 5+len(fileData)+32 + len(fileName) + 1)
+	fileDataMsg := make([]byte, 5+len(fileData)+32+len(fileName)+1)
 	msgLen := len(fileData) + 32 + len(fileName) + 1
 	goUtils.GetBytesFromUint32(fileDataMsg[0:4], uint32(msgLen)+1)
 	fileDataMsg[4] = 4
 	fileDataMsg[5] = byte(len(fileName))
 	copy(fileDataMsg[6:6+len(fileName)], fileName)
 	position := 6 + len(fileName)
-	goUtils.GetBytesFromUint32(fileDataMsg[position:position + 32], uniqueID)
+	goUtils.GetBytesFromUint32(fileDataMsg[position:position+32], uniqueID)
 	position += 32
 	copy(fileDataMsg[position:], fileData)
 	return fileDataMsg
 }
 
-func extractFileData(fileDataMsg[] byte) (uint32, string, []byte) {
+func extractFileData(fileDataMsg []byte) (uint32, string, []byte) {
 	fileNameLen := int(fileDataMsg[1])
-	fileName := string(fileDataMsg[2: 2+fileNameLen])
+	fileName := string(fileDataMsg[2 : 2+fileNameLen])
 	position := 2 + fileNameLen
-	uniqueID := binary.BigEndian.Uint32(fileDataMsg[position: position + 32])
+	uniqueID := binary.BigEndian.Uint32(fileDataMsg[position : position+32])
 	position += 32
 	fileData := fileDataMsg[position:]
 	return uniqueID, fileName, fileData
@@ -73,12 +73,12 @@ func getFileInfoMsg(fileLen uint64, fileName string, md5 string, uniqueID uint32
 	return fileMsg
 }
 
-func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes []uint64) []byte {
+func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes []uint64, md5Hashes []string) []byte {
 	totalNameLen := 0
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
 	}
-	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames) + 8*len(fileSizes))
+	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames)+8*len(fileSizes)+32*len(md5Hashes))
 	msgLen := 6 + totalNameLen + 2 + len(fileNames) + 8*len(fileSizes)
 	goUtils.GetBytesFromUint32(syncReqMsg[0:4], uint32(msgLen))
 	syncReqMsg[4] = 2
@@ -94,6 +94,10 @@ func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes
 		goUtils.GetBytesFromUint64(syncReqMsg[start:start+8], fileSizes[i])
 		start += 8
 	}
+	for i := range md5Hashes {
+		copy(syncReqMsg[start:start+32], md5Hashes[i])
+		start += 32
+	}
 	for i := range fileNames {
 		copy(syncReqMsg[start:start+len(fileNames[i])], fileNames[i])
 		start += len(fileNames[i])
@@ -101,7 +105,7 @@ func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes
 	return syncReqMsg
 }
 
-func extractSyncReqMsg(syncReqMsg []byte) (byte, uint32, []uint64, []string){
+func extractSyncReqMsg(syncReqMsg []byte) (byte, uint32, []uint64, []string, []string) {
 	num_files := binary.BigEndian.Uint16(syncReqMsg[2:4])
 	folderID := uint32(binary.BigEndian.Uint32(syncReqMsg[4:8]))
 	start := 8
@@ -110,16 +114,21 @@ func extractSyncReqMsg(syncReqMsg []byte) (byte, uint32, []uint64, []string){
 		name_lengths = append(name_lengths, syncReqMsg[start])
 	}
 	fileSizes := []uint64{}
-	for i := 0; i < int(num_files) ; i++ {
+	for i := 0; i < int(num_files); i++ {
 		fileSizes = append(fileSizes, binary.BigEndian.Uint64(syncReqMsg[start:start+8]))
 		start += 8
+	}
+	md5Hashes := []string{}
+	for i := 0; i < int(num_files); i++ {
+		md5Hashes = append(md5Hashes, string(syncReqMsg[start:start+32]))
+		start += 32
 	}
 	fileNames := []string{}
 	for i := range name_lengths {
 		fileNames = append(fileNames, string(syncReqMsg[start:start+int(name_lengths[i])]))
 		start += int(name_lengths[i])
 	}
-	return syncReqMsg[1], folderID, fileSizes, fileNames
+	return syncReqMsg[1], folderID, fileSizes, fileNames, md5Hashes
 }
 
 func getMsgType(msg []byte) string {

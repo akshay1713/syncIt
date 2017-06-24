@@ -41,7 +41,7 @@ func (folder FolderManager) add(folderPath string) {
 	_ = addMultipleFiles(folderPath, configFile, uniqueID)
 }
 
-func (folder FolderManager) addNewFolderToGlobal(folderPath string) uint32{
+func (folder FolderManager) addNewFolderToGlobal(folderPath string) uint32 {
 	uniqueID := getNewUniqueID()
 	absFolderPath, _ := filepath.Abs(folderPath)
 	folder.addToGlobal(absFolderPath, uniqueID)
@@ -71,7 +71,11 @@ func (folder FolderManager) sync(folderPath string) {
 	for i := range filesInFolder {
 		fileSizes = append(fileSizes, filesInFolder[i].Size)
 	}
-	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes)
+	md5Hashes := []string{}
+	for i := range filesInFolder {
+		md5Hashes = append(md5Hashes, filesInFolder[i].Md5)
+	}
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes, md5Hashes)
 	folder.peermanager.sendToAllPeers(syncReqMsg)
 }
 
@@ -89,7 +93,7 @@ func (folder FolderManager) updateExistingFolderConfig(folderPath string) SyncDa
 func (folder FolderManager) getAllUniqueIDs() []string {
 	globalConfigJson := getGlobalConfig()
 	uniqueIDs := []string{}
-	for id, _:= range globalConfigJson {
+	for id, _ := range globalConfigJson {
 		uniqueIDs = append(uniqueIDs, id)
 	}
 	return uniqueIDs
@@ -98,29 +102,27 @@ func (folder FolderManager) getAllUniqueIDs() []string {
 func (folder FolderManager) getAllFolders() []string {
 	globalConfigJson := getGlobalConfig()
 	absFolderPaths := []string{}
-	for _, absFolderPath:= range globalConfigJson {
+	for _, absFolderPath := range globalConfigJson {
 		absFolderPaths = append(absFolderPaths, absFolderPath)
 	}
 	return absFolderPaths
 }
 
-func (folder FolderManager) getFolderForID(uniqueID uint32) string {
+func (folder FolderManager) getFolderPath(uniqueID uint32) string {
 	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
 	return getGlobalConfig()[uniqueIDstring]
 }
 
-func (folder FolderManager) backupExistingFiles(uniqueID uint32) {
-	folderPath := folder.getFolderForID(uniqueID)
+func (folder FolderManager) backupExistingFiles(uniqueID uint32, fileNames []string) string {
+	folderPath := folder.getFolderPath(uniqueID)
 	syncFolder := folderPath + "/.syncIt"
-	configPath := syncFolder + "/.syncIt.json"
-	syncData := getSyncData(folderPath, configPath)
-	files := syncData.Files
-	for i := range files {
-		log.Println("Moving ", files[i].Name)
-		currentFilePath := folderPath + "/" + files[i].Name
-		newFilePath := syncFolder + "/" + files[i].Name + ".bak"
+	for i := range fileNames {
+		log.Println("Moving ", fileNames[i])
+		currentFilePath := folderPath + "/" + fileNames[i]
+		newFilePath := syncFolder + "/" + fileNames[i] + ".bak"
 		os.Rename(currentFilePath, newFilePath)
 	}
+	return folderPath
 }
 
 func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID uint32, fileNames []string) {
@@ -143,7 +145,15 @@ func (folder FolderManager) addPeerFiles(folderPath string, fileNames []string, 
 	addMultipleFiles(folderPath, configPath, uniqueID)
 }
 
-func (folder FolderManager) getFilePath (uniqueID uint32, fileName string) string {
+func (folder FolderManager) updateAndGetSyncData(uniqueID uint32) SyncData {
+	folderPath := folder.getFolderPath(uniqueID)
+	folder.updateExistingFolderConfig(folderPath)
+	configPath := folderPath + "/.syncIt/.syncIt.json"
+	syncData := getSyncData(folderPath, configPath)
+	return syncData
+}
+
+func (folder FolderManager) getFilePath(uniqueID uint32, fileName string) string {
 	globalConfigJson := getGlobalConfig()
 	uniqueIDString := strconv.FormatInt(int64(uniqueID), 10)
 	folderPath := globalConfigJson[uniqueIDString]

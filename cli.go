@@ -75,6 +75,10 @@ func (cliController *CLIController) startCli(folder FolderManager) {
 			folderPath := cliController.getCommandInput("Enter the folder path to be synced")
 			folder.sync(folderPath)
 			cliController.print("Syncing " + folderPath)
+		case "diff":
+			folderPath := cliController.getCommandInput("Enter the folder path to be synced")
+			folder.sync(folderPath)
+			cliController.print("Syncing " + folderPath)
 		default:
 			if cliController.ioWait {
 				fmt.Println("Ignoring ", text)
