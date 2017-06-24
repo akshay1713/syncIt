@@ -217,21 +217,23 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 				currentMd5Hashes[syncData.Files[i].Name] = syncData.Files[i].Md5
 			}
 
-			filesChanged := []string{}
+			changedFileNames := []string{}
+			changedFileSizes := []uint64{}
 			for i := range fileNames {
 				if md5Hashes[i] == currentMd5Hashes[fileNames[i]] {
 					log.Println(fileNames[i], "has not changed, continuing")
 					continue
 				}
-				filesChanged = append(filesChanged, fileNames[i])
+				changedFileNames = append(changedFileNames, fileNames[i])
+				changedFileSizes = append(changedFileSizes, fileSizes[i])
 			}
-			folderPath := peer.folderManager.backupExistingFiles(uniqueID, filesChanged)
-			for i := range filesChanged {
-				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i])
-				filePath := folderPath + "/" + fileNames[i]
+			folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
+			for i := range changedFileNames {
+				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i])
+				filePath := folderPath + "/" + changedFileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID: uniqueID}
+				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: changedFileSizes[i], filePtr: filePtr, uniqueID: uniqueID}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}
