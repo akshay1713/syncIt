@@ -233,6 +233,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 
 			changedFileNames := []string{}
 			changedFileSizes := []uint64{}
+			changedModTimes := []uint32{}
 			for i := range fileNames {
 				if md5Hashes[i] == currentMd5Hashes[fileNames[i]] {
 					log.Println(fileNames[i], "has not changed, continuing")
@@ -240,9 +241,21 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 				}
 				changedFileNames = append(changedFileNames, fileNames[i])
 				changedFileSizes = append(changedFileSizes, fileSizes[i])
+				changedModTimes = append(changedModTimes, modTimes[i])
 			}
 			folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
 			for i := range changedFileNames {
+				lockFile := folderPath + "/." + changedFileNames[i] + ".lock"
+				if _, err := os.Stat(lockFile); !os.IsNotExist(err){
+					log.Println("Lock file for", changedFileNames[i], "exists, continuing")
+					continue
+				}
+				lockPtr, err := os.Create(lockFile)
+				lockPtr.Close()
+				goUtils.HandleErr(err, "While creating lock file for " + changedFileNames[i])
+				modTimeBytes := []byte{}
+				goUtils.GetBytesFromUint32(modTimeBytes, changedModTimes[i])
+				lockPtr.Write(modTimeBytes)
 				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i], 1)
 				filePath := folderPath + "/" + changedFileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
