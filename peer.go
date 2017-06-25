@@ -171,20 +171,27 @@ func (peer *Peer) updateFile(file TransferFile, updateSendingFiles bool) {
 }
 
 func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
-	uniqueID, fileName := extractFileReqMsg(fileReqMsg)
+	uniqueID, fileName, diffType := extractFileReqMsg(fileReqMsg)
+	log.Println("Diff type is ", diffType)
 	filePath := peer.folderManager.getFilePath(uniqueID, fileName)
 	filePtr, err := os.Open(filePath)
 	goUtils.HandleErr(err, "While opening file for reading "+filePath)
 	fileStat, err := filePtr.Stat()
 	goUtils.HandleErr(err, "While geting file stats")
 	fileSize := fileStat.Size()
-	transferFile := TransferFile{filePath: filePath, filePtr: filePtr, fileSize: uint64(fileSize), transferredSize: 0, uniqueID: uniqueID}
+	transferFile := TransferFile{
+		filePath: filePath,
+		filePtr: filePtr,
+		fileSize: uint64(fileSize),
+		transferredSize: 0,
+		uniqueID: uniqueID,
+	}
 	peer.sendingFiles = append(peer.sendingFiles, transferFile)
 	go peer.sendFile(transferFile)
 }
 
 func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
-	diffType, uniqueID, fileSizes, fileNames, md5Hashes := extractSyncReqMsg(syncReqMsg)
+	diffType, uniqueID, fileSizes, fileNames, md5Hashes, modTimes := extractSyncReqMsg(syncReqMsg)
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
 	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
 	if goUtils.Pos(uniqueIDs, uniqueIDstring) == -1 {
@@ -197,11 +204,18 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
 			peer.folderManager.addPeerFolder(directory, folderName, uniqueID, fileNames)
 			for i := range fileNames {
-				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i])
+				log.Println(modTimes[i])
+				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i], 0)
 				filePath := directory + "/" + folderName + "/" + fileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: fileSizes[i], filePtr: filePtr, uniqueID: uniqueID}
+				transferFile := TransferFile{
+					filePath: filePath,
+					transferredSize: 0,
+					fileSize: fileSizes[i],
+					filePtr: filePtr,
+					uniqueID: uniqueID,
+				}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}
@@ -229,11 +243,17 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			}
 			folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
 			for i := range changedFileNames {
-				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i])
+				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i], 1)
 				filePath := folderPath + "/" + changedFileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{filePath: filePath, transferredSize: 0, fileSize: changedFileSizes[i], filePtr: filePtr, uniqueID: uniqueID}
+				transferFile := TransferFile{
+					filePath: filePath,
+					transferredSize: 0,
+					fileSize: changedFileSizes[i],
+					filePtr: filePtr,
+					uniqueID: uniqueID,
+				}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
 			}

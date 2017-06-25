@@ -17,6 +17,7 @@ type TransferFile struct {
 	md5             string
 	filePtr         *os.File
 	uniqueID        uint32
+	modTime		uint32
 }
 
 func (file *TransferFile) getNextBytes() []byte {
@@ -70,6 +71,7 @@ type SyncFile struct {
 	Size        uint64   `json:"size"`
 	PieceHashes []string `json:"piece_hashes"`
 	PieceCount  uint32   `json:"piece_count"`
+	ModTime     uint32   `json:"mod_time"`
 }
 
 type SyncData struct {
@@ -118,6 +120,7 @@ func addMultipleFiles(folderPath string, configPath string, uniqueID uint32) []S
 		filePtr, _ := os.Open(folderPath + "/" + fileNames[i])
 		fileStat, _ := filePtr.Stat()
 		fileSize := uint64(fileStat.Size())
+		modTime := uint32(fileStat.ModTime().UTC().Unix())
 		pieceHashes := []string{}
 		pieceCount := 0
 		for readSize := uint64(0); readSize < fileSize; {
@@ -138,6 +141,7 @@ func addMultipleFiles(folderPath string, configPath string, uniqueID uint32) []S
 			Size:        fileSize,
 			PieceCount:  uint32(pieceCount),
 			PieceHashes: pieceHashes,
+			ModTime:     modTime,
 		})
 
 	}

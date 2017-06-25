@@ -24,7 +24,6 @@ func (folder FolderManager) setupFolderConfig(folderPath string) string {
 		os.RemoveAll(syncFolder)
 	}
 	err := os.Mkdir(syncFolder, 0755)
-	// path/to/whatever does not exist
 	if err != nil {
 		folder.cliController.print("Error while creating sync config directory " + string(err.Error()))
 		return ""
@@ -64,18 +63,16 @@ func (folder FolderManager) sync(folderPath string) {
 	syncData := folder.updateExistingFolderConfig(folderPath)
 	filesInFolder := syncData.getAllFiles()
 	fileNames := []string{}
+	fileSizes := []uint64{}
+	md5Hashes := []string{}
+	modTimes := []uint32{}
 	for i := range filesInFolder {
 		fileNames = append(fileNames, filesInFolder[i].Name)
-	}
-	fileSizes := []uint64{}
-	for i := range filesInFolder {
 		fileSizes = append(fileSizes, filesInFolder[i].Size)
-	}
-	md5Hashes := []string{}
-	for i := range filesInFolder {
 		md5Hashes = append(md5Hashes, filesInFolder[i].Md5)
+		modTimes = append(modTimes, filesInFolder[i].ModTime)
 	}
-	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes, md5Hashes)
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 0, fileNames, fileSizes, md5Hashes, modTimes)
 	folder.peermanager.sendToAllPeers(syncReqMsg)
 }
 
