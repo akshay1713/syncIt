@@ -80,7 +80,7 @@ func getSyncReqMsg(uniqueID uint32, diffType byte, fileNames []string, fileSizes
 	for i := range fileNames {
 		totalNameLen += len(fileNames[i])
 	}
-	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames)+8*len(fileSizes)+32*len(md5Hashes) + 32*len(modTimes))
+	syncReqMsg := make([]byte, 10+totalNameLen+2+len(fileNames)+8*len(fileSizes)+32*len(md5Hashes)+32*len(modTimes))
 	msgLen := 6 + totalNameLen + 2 + len(fileNames) + 8*len(fileSizes) + 32*len(md5Hashes) + 32*len(modTimes)
 	goUtils.GetBytesFromUint32(syncReqMsg[0:4], uint32(msgLen))
 	syncReqMsg[4] = 2
@@ -132,6 +132,7 @@ func extractSyncReqMsg(syncReqMsg []byte) (byte, uint32, []uint64, []string, []s
 	modTimes := []uint32{}
 	for i := 0; i < int(num_files); i++ {
 		modTimes = append(modTimes, binary.BigEndian.Uint32(syncReqMsg[start:start+32]))
+		start += 32
 	}
 	fileNames := []string{}
 	for i := range name_lengths {

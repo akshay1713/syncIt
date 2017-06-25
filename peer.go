@@ -180,11 +180,11 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 	goUtils.HandleErr(err, "While geting file stats")
 	fileSize := fileStat.Size()
 	transferFile := TransferFile{
-		filePath: filePath,
-		filePtr: filePtr,
-		fileSize: uint64(fileSize),
+		filePath:        filePath,
+		filePtr:         filePtr,
+		fileSize:        uint64(fileSize),
 		transferredSize: 0,
-		uniqueID: uniqueID,
+		uniqueID:        uniqueID,
 	}
 	peer.sendingFiles = append(peer.sendingFiles, transferFile)
 	go peer.sendFile(transferFile)
@@ -210,11 +210,11 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
 				transferFile := TransferFile{
-					filePath: filePath,
+					filePath:        filePath,
 					transferredSize: 0,
-					fileSize: fileSizes[i],
-					filePtr: filePtr,
-					uniqueID: uniqueID,
+					fileSize:        fileSizes[i],
+					filePtr:         filePtr,
+					uniqueID:        uniqueID,
 				}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)
@@ -246,13 +246,13 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
 			for i := range changedFileNames {
 				lockFile := folderPath + "/." + changedFileNames[i] + ".lock"
-				if _, err := os.Stat(lockFile); !os.IsNotExist(err){
+				if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
 					log.Println("Lock file for", changedFileNames[i], "exists, continuing")
 					continue
 				}
 				lockPtr, err := os.Create(lockFile)
 				lockPtr.Close()
-				goUtils.HandleErr(err, "While creating lock file for " + changedFileNames[i])
+				goUtils.HandleErr(err, "While creating lock file for "+changedFileNames[i])
 				modTimeBytes := []byte{}
 				goUtils.GetBytesFromUint32(modTimeBytes, changedModTimes[i])
 				lockPtr.Write(modTimeBytes)
@@ -261,11 +261,11 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
 				transferFile := TransferFile{
-					filePath: filePath,
+					filePath:        filePath,
 					transferredSize: 0,
-					fileSize: changedFileSizes[i],
-					filePtr: filePtr,
-					uniqueID: uniqueID,
+					fileSize:        changedFileSizes[i],
+					filePtr:         filePtr,
+					uniqueID:        uniqueID,
 				}
 				peer.receivingFiles = append(peer.receivingFiles, transferFile)
 				peer.sendMessage(fileReqMsg)

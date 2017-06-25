@@ -17,7 +17,7 @@ type TransferFile struct {
 	md5             string
 	filePtr         *os.File
 	uniqueID        uint32
-	modTime		uint32
+	modTime         uint32
 }
 
 func (file *TransferFile) getNextBytes() []byte {
