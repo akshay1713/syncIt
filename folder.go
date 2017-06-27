@@ -72,7 +72,7 @@ func (folder FolderManager) sync(folderPath string) {
 		md5Hashes = append(md5Hashes, filesInFolder[i].Md5)
 		modTimes = append(modTimes, filesInFolder[i].ModTime)
 	}
-	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 0, fileNames, fileSizes, md5Hashes, modTimes)
+	syncReqMsg := getSyncReqMsg(syncData.UniqueID, 1, fileNames, fileSizes, md5Hashes, modTimes)
 	folder.peermanager.sendToAllPeers(syncReqMsg)
 }
 

@@ -20,8 +20,8 @@ func getPongMsg() []byte {
 }
 
 func getFileReqMsg(uniqueID int64, fileName string, diffType byte) []byte {
-	fileReqMsg := make([]byte, 5+len(fileName)+4)
-	msgLen := len(fileName) + 4
+	fileReqMsg := make([]byte, 5+len(fileName)+4+1)
+	msgLen := len(fileName) + 4 + 1
 	goUtils.GetBytesFromUint32(fileReqMsg[0:4], uint32(msgLen)+1)
 	fileReqMsg[4] = 3
 	fileReqMsg[5] = diffType

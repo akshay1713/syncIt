@@ -205,7 +205,7 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 			peer.folderManager.addPeerFolder(directory, folderName, uniqueID, fileNames)
 			for i := range fileNames {
 				log.Println(modTimes[i])
-				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i], 0)
+				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i], 1)
 				filePath := directory + "/" + folderName + "/" + fileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
 				goUtils.HandleErr(err, "While opening file for writing")
@@ -251,11 +251,9 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 					continue
 				}
 				lockPtr, err := os.Create(lockFile)
-				lockPtr.Close()
 				goUtils.HandleErr(err, "While creating lock file for "+changedFileNames[i])
-				modTimeBytes := []byte{}
-				goUtils.GetBytesFromUint32(modTimeBytes, changedModTimes[i])
-				lockPtr.Write(modTimeBytes)
+				lockPtr.Write([]byte(strconv.FormatInt(int64(changedModTimes[i]), 10)))
+				lockPtr.Close()
 				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i], 1)
 				filePath := folderPath + "/" + changedFileNames[i]
 				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
