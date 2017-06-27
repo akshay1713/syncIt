@@ -27,8 +27,8 @@ type Peer struct {
 	sendMutex      sync.Mutex
 	cliController  *CLIController
 	folderManager  FolderManager
-	sendingFiles   []TransferFile
-	receivingFiles []TransferFile
+	sendingFiles   MultipleTransferFiles
+	receivingFiles MultipleTransferFiles
 }
 
 func (peer *Peer) initPeer() {
@@ -133,10 +133,11 @@ func (peer *Peer) sendFile(file TransferFile) {
 	fileData := file.getNextBytes()
 	for len(fileData) > 0 {
 		fileDataMsg := getFileDataMsg(fileData, file.uniqueID, file.getFileName())
-		peer.updateFile(file, true)
+		peer.sendingFiles = peer.sendingFiles.update(file)
 		peer.sendMessage(fileDataMsg)
 		fileData = file.getNextBytes()
 	}
+	peer.sendingFiles = peer.sendingFiles.remove(file.filePath)
 }
 
 func (peer *Peer) fileDataHandler(fileDataMsg []byte) {
@@ -148,25 +149,13 @@ func (peer *Peer) fileDataHandler(fileDataMsg []byte) {
 			break
 		}
 	}
-	file.writeBytes(fileData)
-	peer.updateFile(file, false)
-}
-
-func (peer *Peer) updateFile(file TransferFile, updateSendingFiles bool) {
-	if updateSendingFiles {
-		for i := range peer.sendingFiles {
-			if peer.sendingFiles[i].uniqueID == file.uniqueID && peer.sendingFiles[i].filePath == file.filePath {
-				peer.sendingFiles[i] = file
-				return
-			}
-		}
-	} else {
-		for i := range peer.receivingFiles {
-			if peer.receivingFiles[i].uniqueID == file.uniqueID && peer.receivingFiles[i].filePath == file.filePath {
-				peer.receivingFiles[i] = file
-				return
-			}
-		}
+	finished := file.writeBytes(fileData)
+	peer.receivingFiles = peer.receivingFiles.update(file)
+	if finished {
+		folderPath := peer.folderManager.getFolderPath(uniqueID)
+		lockFile := folderPath + "/." + fileName + ".lock"
+		os.Remove(lockFile)
+		peer.receivingFiles = peer.receivingFiles.remove(file.filePath)
 	}
 }
 

@@ -29,7 +29,6 @@ func (file *TransferFile) getNextBytes() []byte {
 	bytesToTransfer := 4096
 	if remainingSize < 4096 {
 		bytesToTransfer = remainingSize
-		defer file.filePtr.Close()
 		fmt.Println("Finished sending file", file.filePath)
 	}
 	nextBytes := make([]byte, int(bytesToTransfer))
@@ -42,17 +41,42 @@ func (file TransferFile) getFileName() string {
 	return filepath.Base(file.filePath)
 }
 
-func (file *TransferFile) writeBytes(fileData []byte) {
+func (file *TransferFile) writeBytes(fileData []byte)  bool {
 	_, err := file.filePtr.Write(fileData)
 	goUtils.HandleErr(err, "While writing to file")
 	file.transferredSize += uint64(len(fileData))
 	if file.transferredSize == file.fileSize {
 		file.filePtr.Close()
 		fmt.Println("Finished receiving file", file.getFileName())
+		return true
 	}
+	return false
 }
 
 type MultipleTransferFiles []TransferFile
+
+func (multipleFiles MultipleTransferFiles) remove(filePath string) MultipleTransferFiles{
+	for i := range multipleFiles {
+		if multipleFiles[i].filePath == filepath {
+			multipleFiles[i].filePtr.Close()
+			multipleFiles = append(multipleFiles[:i], multipleFiles[i+1:]...)
+			return multipleFiles
+		}
+	}
+	//No match found, return as is
+	return multipleFiles
+}
+
+func (multipleFiles MultipleTransferFiles) update(transferFile TransferFile) MultipleTransferFiles{
+	for i := range multipleFiles {
+		if multipleFiles[i].filePath == transferFile.filePath {
+			multipleFiles[i] = transferFile
+			return multipleFiles
+		}
+	}
+	//No match found, return as is
+	return multipleFiles
+}
 
 func newTransferFile(filePath string, fileSize uint64) TransferFile {
 	transferFile := TransferFile{}
