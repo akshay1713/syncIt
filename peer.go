@@ -152,9 +152,6 @@ func (peer *Peer) fileDataHandler(fileDataMsg []byte) {
 	finished := file.writeBytes(fileData)
 	peer.receivingFiles = peer.receivingFiles.update(file)
 	if finished {
-		folderPath := peer.folderManager.getFolderPath(uniqueID)
-		lockFile := folderPath + "/." + fileName + ".lock"
-		os.Remove(lockFile)
 		peer.receivingFiles = peer.receivingFiles.remove(file.filePath)
 	}
 }
@@ -163,10 +160,21 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 	uniqueID, fileName, diffType := extractFileReqMsg(fileReqMsg)
 	log.Println("Diff type is ", diffType)
 	filePath := peer.folderManager.getFilePath(uniqueID, fileName)
+	lockFile := filePath + ".lock"
+	if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
+		log.Println("Lock file for", filePath, "exists, continuing")
+		return
+	}
 	filePtr, err := os.Open(filePath)
-	goUtils.HandleErr(err, "While opening file for reading "+filePath)
+	goUtils.HandleErr(err, "While opening file for sending" + filePath)
+	lockPtr, err := os.Create(lockFile)
+	goUtils.HandleErr(err, "While creating lock file " + lockFile)
 	fileStat, err := filePtr.Stat()
 	goUtils.HandleErr(err, "While geting file stats")
+	modTime := fileStat.ModTime().UTC().Unix()
+	modTimeBytes := []byte(strconv.FormatInt(modTime, 10))
+	lockPtr.Write(modTimeBytes)
+	lockPtr.Close()
 	fileSize := fileStat.Size()
 	transferFile := TransferFile{
 		filePath:        filePath,

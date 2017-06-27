@@ -57,9 +57,11 @@ type MultipleTransferFiles []TransferFile
 
 func (multipleFiles MultipleTransferFiles) remove(filePath string) MultipleTransferFiles{
 	for i := range multipleFiles {
-		if multipleFiles[i].filePath == filepath {
+		if multipleFiles[i].filePath == filePath {
 			multipleFiles[i].filePtr.Close()
 			multipleFiles = append(multipleFiles[:i], multipleFiles[i+1:]...)
+			lockFile := filePath + ".lock"
+			os.Remove(lockFile)
 			return multipleFiles
 		}
 	}
