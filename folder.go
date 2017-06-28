@@ -122,6 +122,14 @@ func (folder FolderManager) backupExistingFiles(uniqueID uint32, fileNames []str
 	return folderPath
 }
 
+func (folder FolderManager) restoreFile(uniqueID uint32, fileName string) {
+	folderPath := folder.getFolderPath(uniqueID)
+	syncFolder := folderPath + "./syncIt"
+	backupFile := syncFolder + "/" + fileName + ".bak"
+	filePath := folderPath + "/" + fileName
+	os.Rename(backupFile, filePath)
+}
+
 func (folder FolderManager) addPeerFolder(directory string, folderName string, uniqueID uint32, fileNames []string) {
 	folderPath := directory + "/" + folderName
 	err := os.Mkdir(folderPath, 0755)

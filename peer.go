@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"io/ioutil"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -245,7 +246,20 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 				lockFile := folderPath + "/." + changedFileNames[i] + ".lock"
 				if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
 					log.Println("Lock file for", changedFileNames[i], "exists, continuing")
-					continue
+					timeBytes, err := ioutil.ReadFile(lockFile)
+					goUtils.HandleErr(err, "While reading existing lock file " + lockFile)
+					timeInt, err := strconv.Atoi(string(timeBytes))
+					goUtils.HandleErr(err, "While converting lock file contents to int")
+					currentModTime := uint32(timeInt)
+					if currentModTime > changedModTimes[i] {
+						peer.folderManager.restoreFile(uniqueID, changedFileNames[i])
+						log.Println("This file is already being received with a higher mod time")
+						continue
+					} else {
+						filePath := folderPath + "/" + changedFileNames[i]
+						peer.receivingFiles = peer.receivingFiles.remove(filePath)
+						peer.sendingFiles = peer.sendingFiles.remove(filePath)
+					}
 				}
 				lockPtr, err := os.Create(lockFile)
 				goUtils.HandleErr(err, "While creating lock file for "+changedFileNames[i])
