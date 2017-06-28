@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/akshay1713/goUtils"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"io/ioutil"
 )
 
 //Peer contains the following data associated with a connected peer-
@@ -167,9 +167,9 @@ func (peer *Peer) fileReqHandler(fileReqMsg []byte) {
 		return
 	}
 	filePtr, err := os.Open(filePath)
-	goUtils.HandleErr(err, "While opening file for sending" + filePath)
+	goUtils.HandleErr(err, "While opening file for sending"+filePath)
 	lockPtr, err := os.Create(lockFile)
-	goUtils.HandleErr(err, "While creating lock file " + lockFile)
+	goUtils.HandleErr(err, "While creating lock file "+lockFile)
 	fileStat, err := filePtr.Stat()
 	goUtils.HandleErr(err, "While geting file stats")
 	modTime := fileStat.ModTime().UTC().Unix()
@@ -193,94 +193,121 @@ func (peer *Peer) syncReqHandler(syncReqMsg []byte) {
 	uniqueIDs := peer.folderManager.getAllUniqueIDs()
 	uniqueIDstring := strconv.FormatInt(int64(uniqueID), 10)
 	if goUtils.Pos(uniqueIDs, uniqueIDstring) == -1 {
-		peer.cliController.print(peer.username + " wants to sync a folder with the following details\n" +
-			"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n" +
-			"MD5 Hashes - " + strings.Join(md5Hashes, ", "))
-		userResponse := peer.cliController.getInput("Do you want to accept this folder?[y/n]")
-		if userResponse == "y" {
-			directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
-			folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
-			peer.folderManager.addPeerFolder(directory, folderName, uniqueID, fileNames)
-			for i := range fileNames {
-				log.Println(modTimes[i])
-				fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i], 1)
-				filePath := directory + "/" + folderName + "/" + fileNames[i]
-				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
-				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{
-					filePath:        filePath,
-					transferredSize: 0,
-					fileSize:        fileSizes[i],
-					filePtr:         filePtr,
-					uniqueID:        uniqueID,
-				}
-				peer.receivingFiles = append(peer.receivingFiles, transferFile)
-				peer.sendMessage(fileReqMsg)
-			}
-		}
+		peer.initNewFolderFromPeer(uniqueID, fileNames, md5Hashes, fileSizes)
 	} else {
 		//sync existing folder here
 		if diffType == 1 {
-			log.Println("Received sync request for folder with details \n" +
-				"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
-			syncData := peer.folderManager.updateAndGetSyncData(uniqueID)
-			currentMd5Hashes := make(map[string]string)
-			for i := range syncData.Files {
-				currentMd5Hashes[syncData.Files[i].Name] = syncData.Files[i].Md5
-			}
-
-			changedFileNames := []string{}
-			changedFileSizes := []uint64{}
-			changedModTimes := []uint32{}
-			for i := range fileNames {
-				if md5Hashes[i] == currentMd5Hashes[fileNames[i]] {
-					log.Println(fileNames[i], "has not changed, continuing")
-					continue
-				}
-				changedFileNames = append(changedFileNames, fileNames[i])
-				changedFileSizes = append(changedFileSizes, fileSizes[i])
-				changedModTimes = append(changedModTimes, modTimes[i])
-			}
-			folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
-			for i := range changedFileNames {
-				lockFile := folderPath + "/." + changedFileNames[i] + ".lock"
-				if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
-					log.Println("Lock file for", changedFileNames[i], "exists, continuing")
-					timeBytes, err := ioutil.ReadFile(lockFile)
-					goUtils.HandleErr(err, "While reading existing lock file " + lockFile)
-					timeInt, err := strconv.Atoi(string(timeBytes))
-					goUtils.HandleErr(err, "While converting lock file contents to int")
-					currentModTime := uint32(timeInt)
-					if currentModTime > changedModTimes[i] {
-						peer.folderManager.restoreFile(uniqueID, changedFileNames[i])
-						log.Println("This file is already being received with a higher mod time")
-						continue
-					} else {
-						filePath := folderPath + "/" + changedFileNames[i]
-						peer.receivingFiles = peer.receivingFiles.remove(filePath)
-						peer.sendingFiles = peer.sendingFiles.remove(filePath)
-					}
-				}
-				lockPtr, err := os.Create(lockFile)
-				goUtils.HandleErr(err, "While creating lock file for "+changedFileNames[i])
-				lockPtr.Write([]byte(strconv.FormatInt(int64(changedModTimes[i]), 10)))
-				lockPtr.Close()
-				fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i], 1)
-				filePath := folderPath + "/" + changedFileNames[i]
-				filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
-				goUtils.HandleErr(err, "While opening file for writing")
-				transferFile := TransferFile{
-					filePath:        filePath,
-					transferredSize: 0,
-					fileSize:        changedFileSizes[i],
-					filePtr:         filePtr,
-					uniqueID:        uniqueID,
-				}
-				peer.receivingFiles = append(peer.receivingFiles, transferFile)
-				peer.sendMessage(fileReqMsg)
-			}
+			peer.syncExistingFolderFromPeer(uniqueID, fileNames, md5Hashes, fileSizes, modTimes)
 		}
 	}
+}
+
+func (peer Peer) initNewFolderFromPeer(uniqueID uint32, fileNames []string, md5Hashes []string, fileSizes []uint64) {
+	peer.cliController.print(peer.username + " wants to sync a folder with the following details\n" +
+		"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n" +
+		"MD5 Hashes - " + strings.Join(md5Hashes, ", "))
+	userResponse := peer.cliController.getInput("Do you want to accept this folder?[y/n]")
+	if userResponse == "y" {
+		directory := peer.cliController.getInput("Enter the directory where you want to create this folder")
+		folderName := peer.cliController.getInput("Enter the name of the folder you want to create")
+		peer.folderManager.addPeerFolder(directory, folderName, uniqueID, fileNames)
+		for i := range fileNames {
+			fileReqMsg := getFileReqMsg(int64(uniqueID), fileNames[i], 1)
+			filePath := directory + "/" + folderName + "/" + fileNames[i]
+			filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, 0755)
+			goUtils.HandleErr(err, "While opening file for writing")
+			transferFile := TransferFile{
+				filePath:        filePath,
+				transferredSize: 0,
+				fileSize:        fileSizes[i],
+				filePtr:         filePtr,
+				uniqueID:        uniqueID,
+			}
+			peer.receivingFiles = append(peer.receivingFiles, transferFile)
+			peer.sendMessage(fileReqMsg)
+		}
+	}
+}
+
+func (peer Peer) syncExistingFolderFromPeer(uniqueID uint32, fileNames []string, md5Hashes []string, fileSizes []uint64, modTimes []uint32) {
+	log.Println("Received sync request for folder with details \n" +
+		"uniqueid - " + string(uniqueID) + "\nFiles - " + strings.Join(fileNames, ", ") + "\n")
+	syncData := peer.folderManager.updateAndGetSyncData(uniqueID)
+	currentMd5Hashes := make(map[string]string)
+	for i := range syncData.Files {
+		currentMd5Hashes[syncData.Files[i].Name] = syncData.Files[i].Md5
+	}
+
+	changedFileNames, changedFileSizes, changedModTimes := getChangedFileData(fileNames, md5Hashes, currentMd5Hashes, fileSizes, modTimes)
+	folderPath := peer.folderManager.backupExistingFiles(uniqueID, changedFileNames)
+	for i := range changedFileNames {
+		fileLocked := peer.isFileLocked(folderPath, uniqueID, changedFileNames[i], changedModTimes[i])
+		if fileLocked {
+			continue
+		}
+		filePath := folderPath + "/" + changedFileNames[i]
+		filePtr, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
+		fileStat, err := filePtr.Stat()
+		goUtils.HandleErr(err, "While getting file stat for syncing existing folder from peer " + changedFileNames[i])
+		currentModTime := uint32(fileStat.ModTime().UTC().Unix())
+		if currentModTime > changedModTimes[i] {
+			continue
+		}
+		lockFile := folderPath + "/." + changedFileNames[i] + ".lock"
+		lockPtr, err := os.Create(lockFile)
+		goUtils.HandleErr(err, "While creating lock file for "+changedFileNames[i])
+		lockPtr.Write([]byte(strconv.FormatInt(int64(changedModTimes[i]), 10)))
+		lockPtr.Close()
+		fileReqMsg := getFileReqMsg(int64(uniqueID), changedFileNames[i], 1)
+		goUtils.HandleErr(err, "While opening file for writing")
+		transferFile := TransferFile{
+			filePath:        filePath,
+			transferredSize: 0,
+			fileSize:        changedFileSizes[i],
+			filePtr:         filePtr,
+			uniqueID:        uniqueID,
+		}
+		peer.receivingFiles = append(peer.receivingFiles, transferFile)
+		peer.sendMessage(fileReqMsg)
+	}
+}
+
+func getChangedFileData(fileNames []string, md5Hashes []string, currentMd5Hashes map[string]string, fileSizes []uint64, modTimes []uint32) ([]string, []uint64, []uint32) {
+	changedFileNames := []string{}
+	changedFileSizes := []uint64{}
+	changedModTimes := []uint32{}
+	for i := range fileNames {
+		if md5Hashes[i] == currentMd5Hashes[fileNames[i]] {
+			log.Println(fileNames[i], "has not changed, continuing")
+			continue
+		}
+		changedFileNames = append(changedFileNames, fileNames[i])
+		changedFileSizes = append(changedFileSizes, fileSizes[i])
+		changedModTimes = append(changedModTimes, modTimes[i])
+	}
+	return changedFileNames, changedFileSizes, changedModTimes
+}
+
+func (peer Peer) isFileLocked(folderPath string, uniqueID uint32, fileName string, newModTime uint32) bool{
+	lockFile := folderPath + "/." + fileName + ".lock"
+	if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
+		log.Println("Lock file for", fileName, "exists, continuing")
+		timeBytes, err := ioutil.ReadFile(lockFile)
+		goUtils.HandleErr(err, "While reading existing lock file "+lockFile)
+		timeInt, err := strconv.Atoi(string(timeBytes))
+		goUtils.HandleErr(err, "While converting lock file contents to int")
+		currentModTime := uint32(timeInt)
+		if currentModTime > newModTime {
+			peer.folderManager.restoreFile(uniqueID, fileName)
+			log.Println("This file is already being received with a higher mod time")
+			return true
+		} else {
+			filePath := folderPath + "/" + fileName
+			peer.receivingFiles = peer.receivingFiles.remove(filePath)
+			peer.sendingFiles = peer.sendingFiles.remove(filePath)
+		}
+	}
+	return false
 }
 
 func (peer Peer) sendPong() {
@@ -310,7 +337,7 @@ func (peer Peer) printReceivingFiles() {
 		return
 	}
 	fileNamesConcatenated := strings.Join(allFileNames, ", ")
-	peer.cliController.print("Files being received from "+peer.username+":\n"+fileNamesConcatenated)
+	peer.cliController.print("Files being received from " + peer.username + ":\n" + fileNamesConcatenated)
 }
 
 func (peer Peer) printSendingFiles() {
@@ -319,10 +346,10 @@ func (peer Peer) printSendingFiles() {
 		return
 	}
 	fileNamesConcatenated := strings.Join(allFileNames, ", ")
-	peer.cliController.print("Files being sent to "+peer.username+":\n"+fileNamesConcatenated)
+	peer.cliController.print("Files being sent to " + peer.username + ":\n" + fileNamesConcatenated)
 }
 
-func (peer Peer) getAllRecevingFiles() []string{
+func (peer Peer) getAllRecevingFiles() []string {
 	fileNames := []string{}
 	for i := range peer.receivingFiles {
 		fileNames = append(fileNames, peer.receivingFiles[i].filePath)

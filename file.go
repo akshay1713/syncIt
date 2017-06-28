@@ -41,7 +41,7 @@ func (file TransferFile) getFileName() string {
 	return filepath.Base(file.filePath)
 }
 
-func (file *TransferFile) writeBytes(fileData []byte)  bool {
+func (file *TransferFile) writeBytes(fileData []byte) bool {
 	_, err := file.filePtr.Write(fileData)
 	goUtils.HandleErr(err, "While writing to file")
 	file.transferredSize += uint64(len(fileData))
@@ -55,7 +55,7 @@ func (file *TransferFile) writeBytes(fileData []byte)  bool {
 
 type MultipleTransferFiles []TransferFile
 
-func (multipleFiles MultipleTransferFiles) remove(filePath string) MultipleTransferFiles{
+func (multipleFiles MultipleTransferFiles) remove(filePath string) MultipleTransferFiles {
 	for i := range multipleFiles {
 		if multipleFiles[i].filePath == filePath {
 			multipleFiles[i].filePtr.Close()
@@ -69,7 +69,7 @@ func (multipleFiles MultipleTransferFiles) remove(filePath string) MultipleTrans
 	return multipleFiles
 }
 
-func (multipleFiles MultipleTransferFiles) update(transferFile TransferFile) MultipleTransferFiles{
+func (multipleFiles MultipleTransferFiles) update(transferFile TransferFile) MultipleTransferFiles {
 	for i := range multipleFiles {
 		if multipleFiles[i].filePath == transferFile.filePath {
 			multipleFiles[i] = transferFile
