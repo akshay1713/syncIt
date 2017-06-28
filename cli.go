@@ -57,7 +57,7 @@ func (cliController *CLIController) printUnsafe(msg string) {
 	fmt.Println(msg)
 }
 
-func (cliController *CLIController) startCli(folder FolderManager) {
+func (cliController *CLIController) startCli(folder FolderManager, peerManager PeerManager) {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		text, _ := reader.ReadString('\n')
@@ -75,10 +75,8 @@ func (cliController *CLIController) startCli(folder FolderManager) {
 			folderPath := cliController.getCommandInput("Enter the folder path to be synced")
 			folder.sync(folderPath)
 			cliController.print("Syncing " + folderPath)
-		case "diff":
-			folderPath := cliController.getCommandInput("Enter the folder path to be synced")
-			folder.sync(folderPath)
-			cliController.print("Syncing " + folderPath)
+		case "print":
+			peerManager.printFileTransferStatus()
 		default:
 			if cliController.ioWait {
 				fmt.Println("Ignoring ", text)

@@ -303,3 +303,37 @@ func (peer Peer) getIPWithPort() string {
 func (peer Peer) getIPWithoutPort() string {
 	return strings.Split(peer.Conn.RemoteAddr().String(), ":")[0]
 }
+
+func (peer Peer) printReceivingFiles() {
+	allFileNames := peer.getAllRecevingFiles()
+	if len(allFileNames) == 0 {
+		return
+	}
+	fileNamesConcatenated := strings.Join(allFileNames, ", ")
+	peer.cliController.print("Files being received from "+peer.username+":\n"+fileNamesConcatenated)
+}
+
+func (peer Peer) printSendingFiles() {
+	allFileNames := peer.getAllSendingFiles()
+	if len(allFileNames) == 0 {
+		return
+	}
+	fileNamesConcatenated := strings.Join(allFileNames, ", ")
+	peer.cliController.print("Files being sent to "+peer.username+":\n"+fileNamesConcatenated)
+}
+
+func (peer Peer) getAllRecevingFiles() []string{
+	fileNames := []string{}
+	for i := range peer.receivingFiles {
+		fileNames = append(fileNames, peer.receivingFiles[i].filePath)
+	}
+	return fileNames
+}
+
+func (peer Peer) getAllSendingFiles() []string {
+	fileNames := []string{}
+	for i := range peer.sendingFiles {
+		fileNames = append(fileNames, peer.sendingFiles[i].filePath)
+	}
+	return fileNames
+}

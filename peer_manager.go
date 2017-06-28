@@ -67,3 +67,10 @@ func (peerManager PeerManager) sendToAllPeers(msg []byte) {
 		peer.sendMessage(msg)
 	}
 }
+
+func (peerManager PeerManager) printFileTransferStatus() {
+	for _, peer := range peerManager.connectedPeers {
+		peer.printReceivingFiles()
+		peer.printSendingFiles()
+	}
+}

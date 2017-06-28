@@ -25,7 +25,7 @@ func main() {
 	cliController := CLIController{inputChan: inputChan}
 	go initDiscovery(peerManager, username, &cliController)
 	folder := FolderManager{cliController: &cliController, peermanager: peerManager}
-	cliController.startCli(folder)
+	cliController.startCli(folder, peerManager)
 }
 
 func getUserName() string {
